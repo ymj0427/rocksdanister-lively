@@ -1012,7 +1012,7 @@ namespace livelywpf
             {
                 if (info.Type == SetupDesktop.WallpaperType.video)
                 {
-                    var dimension = MainWindow.GetVideoSize(info.FileName);
+                    var dimension = utility.VideoOperations.GetVideoSize(info.FileName);
                     //return info.Type.ToString().ToUpper() + ", " + dimension.Width + "x" + dimension.Height;
                     return Properties.Resources.txtLivelyWallpaperTypeVideo + ", " + dimension.Width + "x" + dimension.Height;
                 }

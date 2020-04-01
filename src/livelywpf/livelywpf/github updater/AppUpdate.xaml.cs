@@ -66,7 +66,7 @@ namespace livelywpf.Dialogues
                 chkMarkIgnore.Checked += ChkMarkIgnore_Checked;
                 chkMarkIgnore.Unchecked += ChkMarkIgnore_Checked;
 
-                int result = UpdaterGit.CompareAssemblyVersion(release);
+                int result = GitUpdater.CompareAssemblyVersion(release);
 
                 if (result > 0) //github ver greater, update available!
                 {
@@ -116,7 +116,7 @@ namespace livelywpf.Dialogues
             //DownloadFile(url, filePath);
         }
 
-        WebClient client = new WebClient();
+        private WebClient client = new WebClient();
         private void DownloadFile(string url, string filePath)
         {
             try
@@ -267,10 +267,6 @@ namespace livelywpf.Dialogues
             }
         }
 
-        private void progressBar1_Loaded(object sender, RoutedEventArgs e)
-        {
-
-        }
 
     }
 }

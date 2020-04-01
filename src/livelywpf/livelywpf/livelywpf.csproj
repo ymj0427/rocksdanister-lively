@@ -127,8 +127,8 @@
     <Reference Include="NLog, Version=4.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
       <HintPath>..\packages\NLog.4.7.0\lib\net45\NLog.dll</HintPath>
     </Reference>
-    <Reference Include="Octokit, Version=0.45.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Octokit.0.45.0\lib\net46\Octokit.dll</HintPath>
+    <Reference Include="Octokit, Version=0.46.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Octokit.0.46.0\lib\net46\Octokit.dll</HintPath>
     </Reference>
     <Reference Include="RawInput.Sharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\RawInput.Sharp.0.0.3\lib\netstandard1.1\RawInput.Sharp.dll</HintPath>
@@ -139,8 +139,8 @@
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Buffers, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Buffers.4.4.0\lib\netstandard2.0\System.Buffers.dll</HintPath>
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
     </Reference>
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Configuration" />
@@ -202,7 +202,7 @@
     </Reference>
     <Reference Include="System.Management" />
     <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Memory.4.5.3\lib\netstandard2.0\System.Memory.dll</HintPath>
+      <HintPath>..\packages\System.Memory.4.5.4\lib\net461\System.Memory.dll</HintPath>
     </Reference>
     <Reference Include="System.Net.Http, Version=4.1.1.3, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Net.Http.4.3.4\lib\net46\System.Net.Http.dll</HintPath>
@@ -215,8 +215,8 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Numerics.Vectors, Version=4.1.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Numerics.Vectors.4.4.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
     </Reference>
     <Reference Include="System.Reflection, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Reflection.4.3.0\lib\net462\System.Reflection.dll</HintPath>
@@ -228,8 +228,8 @@
       <Private>True</Private>
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.5.2\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.6.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.7.1\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
     </Reference>
     <Reference Include="System.Runtime.Extensions, Version=4.1.1.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Runtime.Extensions.4.3.1\lib\net462\System.Runtime.Extensions.dll</HintPath>
@@ -309,21 +309,31 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
-    <Compile Include="dialogues_general\AppUpdate.xaml.cs">
+    <Compile Include="github updater\AppUpdate.xaml.cs">
       <DependentUpon>AppUpdate.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Lively\Helpers\UpdaterGit.cs" />
+    <Compile Include="github updater\GitUpdater.cs" />
+    <Compile Include="logging\Log.cs" />
+    <Compile Include="MainWindow.Tile.cs" />
+    <Compile Include="MainWindow.UI.cs" />
     <Compile Include="save\CefProperties.cs" />
-    <Compile Include="dialogues_general\ApplicationRuleDialogWindow.xaml.cs">
+    <Compile Include="general dialogues\ApplicationRuleDialogWindow.xaml.cs">
       <DependentUpon>ApplicationRuleDialogWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="dialogues_general\Changelog.xaml.cs">
+    <Compile Include="general dialogues\Changelog.xaml.cs">
       <DependentUpon>Changelog.xaml</DependentUpon>
     </Compile>
-    <Compile Include="dialogues_wpcreator\CreateWallpaper.xaml.cs">
+    <Compile Include="utility\CefGallery.cs" />
+    <Compile Include="utility\FileIntegrity.cs" />
+    <Compile Include="utility\SystemStartup.cs" />
+    <Compile Include="utility\SystemTray.cs" />
+    <Compile Include="utility\VideoOperations.cs" />
+    <Compile Include="utility\YTDL.cs" />
+    <Compile Include="utility\ZipExtract.cs" />
+    <Compile Include="wallpaper creator\CreateWallpaper.xaml.cs">
       <DependentUpon>CreateWallpaper.xaml</DependentUpon>
     </Compile>
-    <Compile Include="dialogues_wpcreator\CreateWallpaperAddedFiles.xaml.cs">
+    <Compile Include="wallpaper creator\CreateWallpaperAddedFiles.xaml.cs">
       <DependentUpon>CreateWallpaperAddedFiles.xaml</DependentUpon>
     </Compile>
     <Compile Include="display\DisplayID.xaml.cs">
@@ -336,11 +346,11 @@
       <DependentUpon>DisplaySelectWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="display\DpiHelper.cs" />
-    <Compile Include="Lively\Helpers\FileOperations.cs" />
+    <Compile Include="utility\FileOperations.cs" />
     <Compile Include="GlobalSuppressions.cs" />
-    <Compile Include="Lively\Helpers\ImageOperations.cs" />
-    <Compile Include="Lively\Helpers\WindowOperations.cs" />
-    <Compile Include="preview\QuickPreview.xaml.cs">
+    <Compile Include="lively\helper functions\ImageOperations.cs" />
+    <Compile Include="lively\helper functions\WindowOperations.cs" />
+    <Compile Include="wallpaper preview\QuickPreview.xaml.cs">
       <DependentUpon>QuickPreview.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\Icons.Designer.cs">
@@ -348,13 +358,10 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Icons.resx</DependentUpon>
     </Compile>
-    <Compile Include="wp_lib\RawInputDX.xaml.cs">
+    <Compile Include="core\RawInputDX.xaml.cs">
       <DependentUpon>RawInputDX.xaml</DependentUpon>
     </Compile>
-    <Compile Include="wp_windows\LivelywpHolder.xaml.cs">
-      <DependentUpon>LivelywpHolder.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="preview\PreviewWallpaper.xaml.cs">
+    <Compile Include="wallpaper preview\PreviewWallpaper.xaml.cs">
       <DependentUpon>PreviewWallpaper.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\Resources.zh.Designer.cs">
@@ -368,46 +375,46 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="save\SharedBitmapSource.cs" />
-    <Compile Include="save\SystemInfo.cs" />
-    <Compile Include="Lively\Helpers\CaptureWindow.cs" />
-    <Compile Include="wp_windows\GifWindow.xaml.cs">
+    <Compile Include="logging\SystemInfo.cs" />
+    <Compile Include="lively\helper functions\CaptureWindow.cs" />
+    <Compile Include="wallpaper windows\GifWindow.xaml.cs">
       <DependentUpon>GifWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="dialogues_general\HelpWindow.xaml.cs">
+    <Compile Include="general dialogues\HelpWindow.xaml.cs">
       <DependentUpon>HelpWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="wp_windows\Mediakit.xaml.cs">
+    <Compile Include="wallpaper windows\Mediakit.xaml.cs">
       <DependentUpon>Mediakit.xaml</DependentUpon>
     </Compile>
-    <Compile Include="wp_windows\MediaPlayer.xaml.cs">
+    <Compile Include="wallpaper windows\MediaPlayer.xaml.cs">
       <DependentUpon>MediaPlayer.xaml</DependentUpon>
     </Compile>
     <Compile Include="save\NullConverterXaml.cs" />
-    <Compile Include="dialogues_wpcreator\Page_Ext.xaml.cs">
+    <Compile Include="wallpaper creator\Page_Ext.xaml.cs">
       <DependentUpon>Page_Ext.xaml</DependentUpon>
     </Compile>
-    <Compile Include="wp_lib\Pause.cs" />
+    <Compile Include="core\Pause.cs" />
     <Compile Include="save\SaveData.cs" />
-    <Compile Include="wp_lib\SetupDesktop.cs" />
-    <Compile Include="wp_lib\NativeMethods.cs" />
-    <Compile Include="wp_lib\VolumeMixer.cs" />
-    <Page Include="dialogues_general\ApplicationRuleDialogWindow.xaml">
+    <Compile Include="core\SetupDesktop.cs" />
+    <Compile Include="core\NativeMethods.cs" />
+    <Compile Include="core\VolumeMixer.cs" />
+    <Page Include="general dialogues\ApplicationRuleDialogWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="dialogues_general\AppUpdate.xaml">
+    <Page Include="github updater\AppUpdate.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="dialogues_general\Changelog.xaml">
+    <Page Include="general dialogues\Changelog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="dialogues_wpcreator\CreateWallpaper.xaml">
+    <Page Include="wallpaper creator\CreateWallpaper.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="dialogues_wpcreator\CreateWallpaperAddedFiles.xaml">
+    <Page Include="wallpaper creator\CreateWallpaperAddedFiles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -423,27 +430,23 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="preview\QuickPreview.xaml">
+    <Page Include="wallpaper preview\QuickPreview.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="wp_lib\RawInputDX.xaml">
+    <Page Include="core\RawInputDX.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="wp_windows\LivelywpHolder.xaml">
+    <Page Include="wallpaper preview\PreviewWallpaper.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="preview\PreviewWallpaper.xaml">
+    <Page Include="wallpaper windows\GifWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="wp_windows\GifWindow.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="dialogues_general\HelpWindow.xaml">
+    <Page Include="general dialogues\HelpWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -459,15 +462,15 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Page Include="wp_windows\Mediakit.xaml">
+    <Page Include="wallpaper windows\Mediakit.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="wp_windows\MediaPlayer.xaml">
+    <Page Include="wallpaper windows\MediaPlayer.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="dialogues_wpcreator\Page_Ext.xaml">
+    <Page Include="wallpaper creator\Page_Ext.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -481,6 +484,9 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <None Include="NLog.xsd">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="Resources\gear_color_48.png" />
     <None Include="Resources\icons8-gear-32.png" />
     <None Include="Resources\icons8-settings-48.png" />
@@ -550,14 +556,12 @@
     <Resource Include="images\icons8-wrench-48.png" />
     <Resource Include="images\icons8-settings-48.png" />
     <Resource Include="images\icons8-gear-32.png" />
-    <None Include="NLog.config">
+    <Content Include="NLog.config">
       <SubType>Designer</SubType>
-    </None>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="docs\license.rtf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="NLog.xsd">
-      <SubType>Designer</SubType>
     </None>
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">

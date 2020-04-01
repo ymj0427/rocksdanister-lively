@@ -55,16 +55,16 @@ namespace livelywpf
         private ICollectionView tileDataFiltered;
         private bool _isRestoringWallpapers = false;
 
-        private Release gitRelease = null;
-        private string gitUrl = null;
+        //private Release gitRelease = null;
+        //private string gitUrl = null;
+        GitUpdater.GitData gitInfo = null;
         RawInputDX DesktopInputForward = null;
+        readonly utility.SystemTray SysTray = new utility.SystemTray();
 
         public MainWindow()
         {
-            SystemInfo.LogHardwareInfo();
-
             #region lively_SubProcess
-            //External process that runs, kills external pgm wp's( unity, app etc) & refresh desktop in the event lively crashed, could do this in UnhandledException event but this is guaranteed to work even if user kills livelywpf in taskmgr.
+            //External process that runs, kills external pgm wp's( unity, app etc) and refresh desktop in the event lively crashed, could do this in UnhandledException event but this is guaranteed to work even if user kills livelywpf in taskmgr.
             //todo:- should reconsider.
             try
             {
@@ -112,7 +112,6 @@ namespace livelywpf
             //todo:- Window.DpiChangedEvent, so far not required.
             //todo:- Suspend/hibernate events (SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged)
 
-            CreateSysTray();
             //this.DataContext = SaveData.config;
             RestoreSaveSettings();
 
@@ -178,23 +177,12 @@ namespace livelywpf
             SaveData.LoadWallpaperLayout();
             RestoreMenuSettings();
 
-            //github update check
             try
             {
-                gitRelease = await UpdaterGit.GetLatestRelease("lively", "rocksdanister", 45000); //45sec
-                int result = UpdaterGit.CompareAssemblyVersion(gitRelease);
-                if (result > 0) //github ver greater, update available!
+                gitInfo = await GitUpdater.CheckForUpdate("lively", "rocksdanister", "lively_setup_x86_full", 45000);
+                if (gitInfo.Result > 0) //github ver greater, update available!
                 {
-                    try {
-                        //asset format: lively_setup_x86_full_vXXXX.exe, XXXX - 4 digit version no.
-                        gitUrl = await UpdaterGit.GetAssetUrl("lively_setup_x86_full", gitRelease, "lively", "rocksdanister");
-                    }
-                    catch (Exception e) 
-                    {
-                        Logger.Error("Error retriving asseturl for update: " + e.Message);
-                    }
-
-                    update_traybtn.Text = Properties.Resources.txtContextMenuUpdate2;  
+                    utility.SystemTray.SetUpdateTrayBtnText(Properties.Resources.txtContextMenuUpdate2);
                     if (UpdateNotifyOrNot())
                     {
                         if (App.W != null)
@@ -202,7 +190,7 @@ namespace livelywpf
                             //system tray notification, only displayed if lively is minimized to tray.
                             if (!App.W.IsVisible)
                             {
-                                _notifyIcon.ShowBalloonTip(2000, "lively", Properties.Resources.toolTipUpdateMsg, ToolTipIcon.None);
+                                utility.SystemTray.TrayIcon.ShowBalloonTip(2000, "lively", Properties.Resources.toolTipUpdateMsg, ToolTipIcon.None);
                             }
 
                             notify.Manager.CreateMessage()
@@ -212,7 +200,7 @@ namespace livelywpf
                                .Accent("#808080")
                                .Background("#333")
                                .HasBadge("Info")
-                               .HasMessage(Properties.Resources.txtUpdateBanner + " " + gitRelease.TagName)
+                               .HasMessage(Properties.Resources.txtUpdateBanner + " " + gitInfo.Release.TagName)
                                .WithButton(Properties.Resources.txtDownload, button => { ShowLivelyUpdateWindow(); })
                                .Dismiss().WithButton(Properties.Resources.txtLabel37, button => { })
                                 /*
@@ -228,26 +216,24 @@ namespace livelywpf
                                     }
                                 })
                                 */
-                            .Queue();
+                                .Queue();
                         }
                     }
                 }
-                else if (result < 0) //this is early access software.
+                else if (gitInfo.Result < 0) //this is early access software.
                 {
-                    update_traybtn.Text = Properties.Resources.txtContextMenuUpdate3;
+                    utility.SystemTray.SetUpdateTrayBtnText(Properties.Resources.txtContextMenuUpdate3);
                 }
                 else //up-to-date
                 {
-                    update_traybtn.Text = Properties.Resources.txtContextMenuUpdate4;
+                    utility.SystemTray.SetUpdateTrayBtnText(Properties.Resources.txtContextMenuUpdate4);
                 }
             }
             catch(Exception e)
             {
-                //todo: retry after waiting.
-                update_traybtn.Text = Properties.Resources.txtContextMenuUpdate5;
-                Logger.Error("Error checking for update: " + e.Message);
+                Logger.Error("Update check fail:" + e.Message);
             }
-            update_traybtn.Enabled = true;
+            utility.SystemTray.UpdateTrayBtnToggle(true);
         }
 
         #region wp_input_setup
@@ -280,11 +266,11 @@ namespace livelywpf
         #region git_update
 
         Dialogues.AppUpdate appUpdateWindow = null;
-        private void ShowLivelyUpdateWindow()
+        public void ShowLivelyUpdateWindow()
         {
             if (appUpdateWindow == null)
             {            
-                appUpdateWindow = new Dialogues.AppUpdate(gitRelease, gitUrl)
+                appUpdateWindow = new Dialogues.AppUpdate(gitInfo.Release, gitInfo.GitUrl)
                 {
                     WindowStartupLocation = WindowStartupLocation.CenterScreen
                 };
@@ -306,12 +292,12 @@ namespace livelywpf
 
         private bool UpdateNotifyOrNot()
         {
-            if(gitRelease == null || gitUrl == null)
+            if(gitInfo.Release == null || gitInfo.GitUrl == null)
             {
                 return false;
             }
-            else if(SaveData.config.IsFirstRun || String.IsNullOrWhiteSpace(gitRelease.TagName) ||
-                gitRelease.TagName.Equals(SaveData.config.IgnoreUpdateTag, StringComparison.Ordinal))
+            else if(SaveData.config.IsFirstRun || String.IsNullOrWhiteSpace(gitInfo.Release.TagName) ||
+                gitInfo.Release.TagName.Equals(SaveData.config.IgnoreUpdateTag, StringComparison.Ordinal))
             {
                 return false;
             }
@@ -320,75 +306,15 @@ namespace livelywpf
                 return true;
             }
         }
+
         #endregion git_update
 
-        #region CefGallery
-        //incomplete: work in progress, not sure weather to finish this.. deviantart downloader.
-        Process webProcess;
-        private void StartCefBrowserNewWindow(string url)
-        {
-            webProcess = new Process();
-            ProcessStartInfo start1 = new ProcessStartInfo();
-            //start1.Arguments = url + @" deviantart";
-            start1.Arguments = url + @" online";
-
-            start1.FileName = App.PathData + @"\external\cef\LivelyCefSharp.exe";
-            start1.RedirectStandardInput = true;
-            start1.RedirectStandardOutput = true;
-            start1.UseShellExecute = false;
-
-            webProcess = new Process();
-            webProcess = Process.Start(start1);
-            webProcess.EnableRaisingEvents = true;
-            webProcess.OutputDataReceived += WebProcess_OutputDataReceived;
-            webProcess.Exited += WebProcess_Exited;
-            webProcess.BeginOutputReadLine();
-
-        }
-
-        private void WebProcess_Exited(object sender, EventArgs e)
-        {
-            webProcess.OutputDataReceived -= WebProcess_OutputDataReceived;
-            webProcess.Close();
-        }
-
-        private static void WebProcess_OutputDataReceived(object sender, DataReceivedEventArgs e)
-        {
-            Logger.Info("CEF:" + e.Data);
-            try
-            {
-                if (e.Data.Contains("LOADWP"))
-                {
-                    var downloadedFilePath = e.Data.Replace("LOADWP", String.Empty);
-
-                    System.Windows.Application.Current.Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Background, new ThreadStart(delegate
-                    {
-                        App.W.ShowMainWindow();
-                        App.W.WallpaperInstaller(downloadedFilePath);
-                    }));
-                }
-            }
-            catch (NullReferenceException)
-            {
-
-            }
-            catch (Exception)
-            {
-                //todo
-            }
-        }
-        #endregion CefGallery
-
         #region system_events
-        private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
-        {
-            throw new NotImplementedException();
-        }
-
+ 
         bool _startupRun = true;
         /// <summary>
         /// Display device settings changed event. 
-        /// Closes & restarts wp's in the event system display layout changes.(based on wallpaperlayout SaveData file)
+        /// Closes and restarts wp's in the event system display layout changes.(based on wallpaperlayout SaveData file)
         /// Updates wp dimensions in the event ONLY resolution changes.
         /// </summary>
         /// <param name="sender"></param>
@@ -456,7 +382,7 @@ namespace livelywpf
                 //remove wp's with file missing on disk, except for url type( filePath =  website url).
                 if( wallpapersToBeLoaded.RemoveAll(x => !File.Exists(x.FilePath) && x.Type != SetupDesktop.WallpaperType.url && x.Type != SetupDesktop.WallpaperType.video_stream) > 0)
                 {
-                    _notifyIcon.ShowBalloonTip(10000,"lively",Properties.Resources.toolTipWallpaperSkip, ToolTipIcon.None);
+                    utility.SystemTray.TrayIcon.ShowBalloonTip(10000,"lively",Properties.Resources.toolTipWallpaperSkip, ToolTipIcon.None);
                     notify.Manager.CreateMessage()
                    .Accent("#FF0000")
                    .HasBadge("Warn")
@@ -489,132 +415,10 @@ namespace livelywpf
 
         #endregion system_events
 
-        #region windows_startup
-        /// <summary>
-        /// Adds startup entry in registry under application name "livelywpf", current user ONLY. (Does not require admin rights).
-        /// </summary>
-        /// <param name="setStartup">false: delete entry, true: add/update entry.</param>
-        private void SetStartupRegistry(bool setStartup = false)
-        {
-            Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-            Assembly curAssembly = Assembly.GetExecutingAssembly();
-            if (setStartup)
-            {
-                try
-                {
-                    key.SetValue(curAssembly.GetName().Name, curAssembly.Location);
-                }
-                catch (Exception ex)
-                {
-                    StartupToggle.IsChecked = false;
-                    Logger.Error(ex.ToString());
-                    WpfNotification(NotificationType.error, Properties.Resources.txtLivelyErrorMsgTitle, "Failed to setup startup: " + ex.Message);
-                }
-            }
-            else
-            {
-                try
-                {
-                    key.DeleteValue(curAssembly.GetName().Name, false);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error(ex.ToString());
-                }
-            }
-            key.Close();
-        }
-        /// <summary>
-        /// Checks if startup registry entry is present.
-        /// </summary>
-        /// <returns></returns>
-        private static bool CheckStartupRegistry()
-        {
-            Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", true);
-            Assembly curAssembly = Assembly.GetExecutingAssembly();
-            string result = null;
-            try
-            {
-                result = (string)key.GetValue(curAssembly.GetName().Name);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex.ToString());
-            }
-            finally
-            {
-                key.Close();
-            }
-
-            if (String.IsNullOrEmpty(result))
-            {            
-                return false;
-            }
-            else
-            {
-                return true;
-            }     
-        }
-
-        [Obsolete("Fails to work when folderpath contains non-english characters(WshShell is ancient afterall); use SetStartupRegistry() instead.")]
-        /// <summary>
-        /// Creates application shortcut & copy to startup folder of current user(does not require admin rights).
-        /// </summary>
-        /// <param name="setStartup"></param>
-        private void SetStartupFolder(bool setStartup = false)
-        {
-            string shortcutAddress = Environment.GetFolderPath(Environment.SpecialFolder.Startup) + "\\LivelyWallpaper.lnk";
-            if (setStartup)
-            {
-                try
-                {
-                    IWshRuntimeLibrary.WshShell shell = new IWshRuntimeLibrary.WshShell();
-                    System.Reflection.Assembly curAssembly = System.Reflection.Assembly.GetExecutingAssembly();
-
-                    IWshRuntimeLibrary.IWshShortcut shortcut = (IWshRuntimeLibrary.IWshShortcut)shell.CreateShortcut(shortcutAddress);
-                    shortcut.Description = "Lively Wallpaper System";
-                    shortcut.WorkingDirectory = App.PathData;
-                    shortcut.TargetPath = curAssembly.Location;
-                    shortcut.Save();
-                }
-                catch(Exception e) 
-                {
-                    StartupToggle.IsChecked = false;
-                    Logger.Error(e.ToString());
-                    MessageBox.Show("Failed to setup startup", Properties.Resources.txtLivelyErrorMsgTitle);
-                }
-            }
-            else
-            {
-                if(File.Exists(shortcutAddress))
-                {
-                    try
-                    {
-                        File.Delete(shortcutAddress);
-                    }
-                    catch (UnauthorizedAccessException e)
-                    {
-                        Logger.Error(e.ToString());
-                        MessageBox.Show("UnauthorizedAccessException: The caller does not have the required permission.? try restarting lively with admin access or delete the file yourself:\n" 
-                            + Environment.GetFolderPath(Environment.SpecialFolder.Startup), Properties.Resources.txtLivelyErrorMsgTitle);
-                    }
-                }
-            }
-        }
-
-        private void StartupToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            SetStartupRegistry(StartupToggle.IsChecked.Value);
-
-            SaveData.config.Startup = StartupToggle.IsChecked.Value;
-            SaveData.SaveConfig();
-        }
-        #endregion windows_startup
-
         #region wallpaper_library  
 
         /// <summary>
-        /// Loads & populate lively wp library from "//wallpapers" path if any. 
+        /// Loads and populate lively wp library from "//wallpapers" path if any. 
         /// </summary>
         public void UpdateWallpaperLibrary()
         {
@@ -747,7 +551,7 @@ namespace livelywpf
         }
 
         /// <summary>
-        /// Copy & load wallpaper file from tmpdata/wpdata folder into Library.
+        /// Copy and load wallpaper file from tmpdata/wpdata folder into Library.
         /// </summary>
         public void LoadWallpaperFromWpDataFolder()
         {
@@ -769,7 +573,7 @@ namespace livelywpf
 
             if (SaveData.LoadWallpaperMetaData(Path.Combine(App.PathData, "tmpdata","wpdata\\") ))
             {
-                //making the thumbnail & preview absolute paths.
+                //making the thumbnail and preview absolute paths.
                 if(File.Exists( Path.Combine(App.PathData, "tmpdata", "wpdata", SaveData.info.Preview) ))
                     SaveData.info.Preview = Path.Combine(dir,SaveData.info.Preview);
                 if (File.Exists( Path.Combine(App.PathData, "tmpdata", "wpdata", SaveData.info.Thumbnail) ))
@@ -887,7 +691,7 @@ namespace livelywpf
         #region scroll_gif_logic
 
         /// <summary>
-        /// Initialize only few gif preview to reduce cpu usage, gif's are loaded & disposed(atleast marked) based on ScrollChanged event.
+        /// Initialize only few gif preview to reduce cpu usage, gif's are loaded and disposed(atleast marked) based on ScrollChanged event.
         /// </summary>
         private void InitializeTilePreviewGifs()
         {
@@ -992,31 +796,6 @@ namespace livelywpf
 
         #endregion scroll_gif_logic
 
-        /// <summary>
-        /// Determine video resolution
-        /// </summary>
-        /// <param name="videoFullPath"></param>
-        /// <returns>x = width, y = heigh</returns>
-        public static Size GetVideoSize(string videoFullPath)
-        {
-            try
-            {
-                if (File.Exists(videoFullPath))
-                {
-                    ShellFile shellFile = ShellFile.FromFilePath(videoFullPath);
-
-                    int videoWidth = (int)shellFile.Properties.System.Video.FrameWidth.Value;
-                    int videoHeight = (int)shellFile.Properties.System.Video.FrameHeight.Value;
-
-                    return new Size(videoWidth, videoHeight);
-                }
-            }
-            catch(Exception)
-            {
-                return Size.Empty;
-            }
-            return Size.Empty;
-        }
 
         private void MenuItem_SetWallpaper_Click(object sender, RoutedEventArgs e) //contextmenu
         {
@@ -1114,7 +893,7 @@ namespace livelywpf
         /// System tray customise option.
         /// Always display selection dialog for multiple screens.
         /// </summary>
-        private static void ShowCustomiseWidget()
+        public static void ShowCustomiseWidget()
         {
             if (Multiscreen)
             {
@@ -1288,7 +1067,7 @@ namespace livelywpf
                     //lively metadata files..
                     if (selection.LivelyInfo.IsAbsolutePath)
                     {
-                        //converting absolute path to relative & saving livelyinfo file.
+                        //converting absolute path to relative and saving livelyinfo file.
                         if (SaveData.LoadWallpaperMetaData(Path.GetDirectoryName(selection.LivelyInfo.Thumbnail)))
                         {
                             SaveData.info.IsAbsolutePath = false;
@@ -1562,98 +1341,7 @@ namespace livelywpf
         #endregion wallpaper_library
 
         #region systray
-        private static System.Windows.Forms.NotifyIcon _notifyIcon;
-        private static bool _isExit;
-
-        private void CreateSysTray()
-        {
-            //NotifyIcon Fix: https://stackoverflow.com/questions/28833702/wpf-notifyicon-crash-on-first-run-the-root-visual-of-a-visualtarget-cannot-hav/29116917
-            //Rarely I get this error "The root Visual of a VisualTarget cannot have a parent..", hard to pinpoint not knowing how to recreate the error.
-            System.Windows.Controls.ToolTip tt = new System.Windows.Controls.ToolTip();
-            tt.IsOpen = true;
-            tt.IsOpen = false;
-
-            _notifyIcon = new System.Windows.Forms.NotifyIcon();
-            _notifyIcon.DoubleClick += (s, args) => ShowMainWindow();
-            _notifyIcon.Icon = Properties.Icons.icons8_seed_of_life_96_normal;
-
-            CreateContextMenu();
-            _notifyIcon.Visible = true;
-        }
-
-        System.Windows.Forms.ToolStripMenuItem update_traybtn, pause_traybtn, configure_traybtn;
-        //private bool playpauseToggle = false;
-        private void CreateContextMenu()
-        {
-            _notifyIcon.ContextMenuStrip =
-              new System.Windows.Forms.ContextMenuStrip();
-            _notifyIcon.Text = Properties.Resources.txtTitlebar;
-
-            _notifyIcon.ContextMenuStrip.Items.Add(Properties.Resources.txtContextMenuOpenLively, Properties.Icons.icon_monitor).Click += (s, e) => ShowMainWindow();
-            _notifyIcon.ContextMenuStrip.Items.Add(Properties.Resources.txtContextMenuCloseAll, Properties.Icons.icon_erase).Click += (s, e) => SetupDesktop.CloseAllWallpapers();
-            update_traybtn = new System.Windows.Forms.ToolStripMenuItem(Properties.Resources.txtContextMenuUpdate1, Properties.Icons.icon_update);
-            //update_traybtn.Click += (s, e) => Process.Start("https://github.com/rocksdanister/lively");
-            update_traybtn.Click += (s,e) => ShowLivelyUpdateWindow();
-            update_traybtn.Enabled = false;
-
-            //todo:- store a "state" in setupdesktop, maintain that state even after wp change. (also checkmark this menu if paused)
-            pause_traybtn = new System.Windows.Forms.ToolStripMenuItem("Pause All Wallpapers", Properties.Icons.icons8_pause_30);
-            pause_traybtn.Click += (s, e) => ToggleWallpaperPlaybackState();
-            _notifyIcon.ContextMenuStrip.Items.Add(pause_traybtn);
-
-            configure_traybtn = new System.Windows.Forms.ToolStripMenuItem("Customize Wallpaper", Properties.Icons.gear_color_48);
-            configure_traybtn.Click += (s, e) => ShowCustomiseWidget();
-            _notifyIcon.ContextMenuStrip.Items.Add(configure_traybtn);
-
-            _notifyIcon.ContextMenuStrip.Items.Add("-");
-            _notifyIcon.ContextMenuStrip.Items.Add(update_traybtn);
-
-            _notifyIcon.ContextMenuStrip.Items.Add("-");
-
-            _notifyIcon.ContextMenuStrip.Items.Add(Properties.Resources.txtSupport, Properties.Icons.icons8_heart_outline_16).Click += (s, e) => Hyperlink_SupportPage(null,null) ;
-            _notifyIcon.ContextMenuStrip.Items.Add("-");
-            _notifyIcon.ContextMenuStrip.Items.Add(Properties.Resources.txtContextMenuExit, Properties.Icons.icon_close).Click += (s, e) => ExitApplication();
-        }
-
-        private static void ToggleWallpaperPlaybackState()
-        {
-            if (App.W != null)
-            {
-                if (SetupDesktop.GetEngineState() == SetupDesktop.EngineState.normal)
-                {
-                    SetupDesktop.SetEngineState(SetupDesktop.EngineState.paused);
-                    App.W.pause_traybtn.Checked = true;
-                }
-                else
-                {
-                    SetupDesktop.SetEngineState(SetupDesktop.EngineState.normal);
-                    App.W.pause_traybtn.Checked = false;
-                }
-            }
-        }
-
-        public static void SwitchTrayIcon(bool isPaused)
-        {
-            try
-            {
-                //don't make much sense with per-display rule in multiple display systems, so turning off.
-                if ( (!Multiscreen || SaveData.config.WallpaperArrangement == WallpaperArrangement.span) && !_isExit)
-                {
-                    if (isPaused)
-                    {
-                        _notifyIcon.Icon = Properties.Icons.icons8_seed_of_life_96_pause;
-                    }
-                    else
-                    {
-                        _notifyIcon.Icon = Properties.Icons.icons8_seed_of_life_96_normal;
-                    }
-                }
-            }
-            catch (NullReferenceException)
-            {
-                //app closing.
-            }
-        }
+        public static bool _isExit;
 
         private int prevSelectedLibIndex = -1;
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -1663,7 +1351,7 @@ namespace livelywpf
                 e.Cancel = true;
                 if (SaveData.config.IsFirstRun)
                 {
-                    _notifyIcon.ShowBalloonTip(3000, "Lively",Properties.Resources.toolTipMinimizeMsg,ToolTipIcon.None);
+                   utility.SystemTray.TrayIcon.ShowBalloonTip(3000, "Lively",Properties.Resources.toolTipMinimizeMsg,ToolTipIcon.None);
 
                     SaveData.config.IsFirstRun = false;
                     SaveData.SaveConfig();
@@ -1689,11 +1377,7 @@ namespace livelywpf
          
                 SetupDesktop.RefreshDesktop();
 
-                //systraymenu dispose
-                _notifyIcon.Visible = false;
-                _notifyIcon.Icon.Dispose();
-                //_notifyIcon.Icon = null;
-                _notifyIcon.Dispose();
+                SysTray.Dispose();
             }
         }
 
@@ -1800,7 +1484,7 @@ namespace livelywpf
 
             if (type == SetupDesktop.WallpaperType.video_stream)
             {
-                tmpData.Arguments = YoutubeDLArgGenerate(path);
+                tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(path);
             }
 
             //if previously running or cancelled, waiting to end.
@@ -2039,7 +1723,7 @@ namespace livelywpf
 
                     if (layout.Type == SetupDesktop.WallpaperType.video_stream)
                     {
-                        tmpData.Arguments = YoutubeDLArgGenerate(layout.FilePath);
+                        tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(layout.FilePath);
                     }
                     else
                         tmpData.Arguments = layout.Arguments;
@@ -2061,7 +1745,7 @@ namespace livelywpf
 
                     if (layout.Type == SetupDesktop.WallpaperType.video_stream)
                     {
-                        tmpData.Arguments = YoutubeDLArgGenerate(layout.FilePath);
+                        tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(layout.FilePath);
                     }
                     else
                         tmpData.Arguments = layout.Arguments;
@@ -2123,7 +1807,7 @@ namespace livelywpf
             ZipInstallInfo zipInstance = null;
             string randomFolderName = Path.GetRandomFileName();
             string extractPath = null;
-            extractPath = App.PathData + "\\wallpapers\\" + randomFolderName;
+            extractPath = Path.Combine(App.PathData, "wallpapers", randomFolderName);
 
             //Todo: implement CheckZip() {thread blocking}, Error will be thrown during extractiong, which is being handled so not a big deal.
             //Ionic.Zip.ZipFile.CheckZip(zipLocation)
@@ -2342,1170 +2026,8 @@ namespace livelywpf
             }
         }
 
-        /// <summary>
-        /// Calculates SHA256 hash of file.
-        /// </summary>
-        /// <param name="filepath">path to the file.</param>
-        string CalculateFileCheckSum(string filepath)
-        {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                using (var stream = File.OpenRead(filepath))
-                {
-                    var hash = sha256.ComputeHash(stream);
-                    return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-                }
-            }
-        }
-
         #endregion wallpaper_installer
-
-        #region tile_events
-
-        private void Tile_Video_Click(object sender, RoutedEventArgs e)
-        {
-            OpenFileDialog openFileDialog1 = new OpenFileDialog
-            {
-                Filter = "All Videos Files |*.dat; *.wmv; *.3g2; *.3gp; *.3gp2; *.3gpp; *.amv; *.asf;  *.avi; *.bin; *.cue; *.divx; *.dv; *.flv; *.gxf; *.iso; *.m1v; *.m2v; *.m2t; *.m2ts; *.m4v; " +
-                  " *.mkv; *.mov; *.mp2; *.mp2v; *.mp4; *.mp4v; *.mpa; *.mpe; *.mpeg; *.mpeg1; *.mpeg2; *.mpeg4; *.mpg; *.mpv2; *.mts; *.nsv; *.nuv; *.ogg; *.ogm; *.ogv; *.ogx; *.ps; *.rec; *.rm; *.rmvb; *.tod; *.ts; *.tts; *.vob; *.vro; *.webm"
-            };
-
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.video);
-            }
-
-        }
-
-        private void Tile_GIF_Click(object sender, RoutedEventArgs e)
-        {
-            OpenFileDialog openFileDialog1 = new OpenFileDialog()
-            {
-                Filter = "Animated GIF (*.gif) |*.gif"
-            };
-
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.gif);
-            }
-
-        }
-
-        private async void Tile_Unity_Click(object sender, RoutedEventArgs e)
-        {
-            if (SaveData.config.WarningUnity == 0)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgExternalAppWarningTitle, Properties.Resources.msgExternalAppWarning, MessageDialogStyle.AffirmativeAndNegative,
-                           new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16 });
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {
-                    SaveData.config.WarningUnity++;
-                    SaveData.SaveConfig();
-                }
-            }
-            OpenFileDialog openFileDialog1 = new OpenFileDialog()
-            {
-                Title = "Select Unity game",
-                Filter = "Executable |*.exe"
-            };
-
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.unity);
-            }
-        }
-
-        private async void Tile_UNITY_AUDIO_Click(object sender, RoutedEventArgs e)
-        {
-            if (SaveData.config.WarningUnity == 0)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgExternalAppWarningTitle, Properties.Resources.msgExternalAppWarning, MessageDialogStyle.AffirmativeAndNegative,
-                           new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16 });
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {
-                    SaveData.config.WarningUnity++;
-                    SaveData.SaveConfig();
-                }
-            }
-
-            OpenFileDialog openFileDialog1 = new OpenFileDialog()
-            {
-                Title = "Select Unity audio visualiser",
-                Filter = "Executable |*.exe"
-            };
-
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.unity_audio);
-            }
-
-        }
-
-        private void Tile_LIVELY_ZIP_Click(object sender, RoutedEventArgs e)
-        {
-            //tabControl1.SelectedIndex = 0; //switch to library tab.
-            Button_Click_InstallWallpaper(this, null);
-        }
-
-        private async void Tile_Godot_Click(object sender, RoutedEventArgs e)
-        {
-            if (SaveData.config.WarningGodot == 0)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgExternalAppWarningTitle, Properties.Resources.msgExternalAppWarning, MessageDialogStyle.AffirmativeAndNegative,
-                           new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16 });
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {
-                    SaveData.config.WarningGodot++;
-                    SaveData.SaveConfig();
-                }
-            }
-
-            OpenFileDialog openFileDialog1 = new OpenFileDialog
-            {
-                Title = "Select Godot game",
-                Filter = "Executable |*.exe"
-            };
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.godot);
-            }
-        }
-
-        private async void Tile_BizHawk_Click(object sender, RoutedEventArgs e)
-        {
-            WpfNotification(NotificationType.info, Properties.Resources.txtLivelyErrorMsgTitle, Properties.Resources.txtComingSoon);
-            return;
-
-            var dir = Directory.GetFiles(App.PathData + @"\external\bizhawk", "EmuHawk.exe", SearchOption.AllDirectories); //might be slow, only check top?
-            if (dir.Length != 0)
-            {
-                SetupWallpaper(dir[0], SetupDesktop.WallpaperType.bizhawk);
-            }
-            else if (File.Exists(SaveData.config.BizHawkPath))
-            {
-                SetupWallpaper(SaveData.config.BizHawkPath, SetupDesktop.WallpaperType.bizhawk);
-            }
-            else
-            {
-                var ch = await this.ShowMessageAsync("Bizhawk Not Found", "Download BizHawk Emulator:\nhttps://github.com/TASVideos/BizHawk\nExtract & copy contents to:\nexternal\\bizhawk folder" +
-                        "\n\n\t\tOR\n\nClick Browse & select EmuHawk.exe", MessageDialogStyle.AffirmativeAndNegative,
-                        new MetroDialogSettings() { AffirmativeButtonText = "Ok", NegativeButtonText = "Browse", DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Theme, DialogMessageFontSize = 16 });
-
-                if (ch == MessageDialogResult.Affirmative) //Ok
-                {
-                    return;
-                }
-                else if (ch == MessageDialogResult.Negative) //Browse
-                {
-
-                    OpenFileDialog openFileDialog1 = new OpenFileDialog
-                    {
-                        Title = "Select EmuHawk.exe",
-                        FileName = "EmuHawk.exe"
-                    };
-                    // openFileDialog1.Filter = formatsVideo;
-                    if (openFileDialog1.ShowDialog() == true)
-                    {
-                        SaveData.config.BizHawkPath = openFileDialog1.FileName;
-                        SaveData.SaveConfig();
-
-                        SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.bizhawk);
-                    }
-                }
-            }
-
-        }
-
-        private async void Tile_Other_Click(object sender, RoutedEventArgs e)
-        {
-            var ch = await this.ShowMessageAsync(Properties.Resources.txtLivelyWaitMsgTitle, Properties.Resources.txtLivelyAppWarning, MessageDialogStyle.AffirmativeAndNegative,
-                       new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16,
-                       AnimateHide = false, AnimateShow = false});
-
-            if (ch == MessageDialogResult.Negative)
-                return;
-            else if (ch == MessageDialogResult.Affirmative)
-            {
-
-            }
-
-            OpenFileDialog openFileDialog1 = new OpenFileDialog
-            {
-                Filter = "Application (*.exe) |*.exe"
-            };
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.app);
-            }
-        }
-
-        private void Tile_HTML_Click(object sender, RoutedEventArgs e)
-        {
-            OpenFileDialog openFileDialog1 = new OpenFileDialog
-            {
-                Filter = "Web Page (*.html) |*.html"
-            };
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.web);
-            }
-        }
-
-
-        private void Tile_HTML_AUDIO_Click(object sender, RoutedEventArgs e)
-        {
-            OpenFileDialog openFileDialog1 = new OpenFileDialog
-            {
-                Filter = "Web Page with visualiser (*.html) |*.html"
-            };
-            if (openFileDialog1.ShowDialog() == true)
-            {
-                SetupWallpaper(openFileDialog1.FileName, SetupDesktop.WallpaperType.web_audio);
-            }
-        }
-
-        private async void Tile_Video_stream_Click(object sender, RoutedEventArgs e)
-        {
-            if (SaveData.config.WarningURL == 0)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgUrlWarningTitle, Properties.Resources.msgUrlWarning, MessageDialogStyle.AffirmativeAndNegative,
-                                new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16 });
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {
-                    SaveData.config.WarningURL++;
-                    SaveData.SaveConfig();
-                }
-            }
-
-            var url = await this.ShowInputAsync("Stream", "Load online video..", new MetroDialogSettings() { 
-                DialogTitleFontSize = 16, DialogMessageFontSize = 14, DefaultText = String.Empty, AnimateHide = false, AnimateShow = false });
-            if (string.IsNullOrEmpty(url))
-                return;
-
-            SetupWallpaper(url, SetupDesktop.WallpaperType.video_stream);
-        }
-
-        private async void Tile_URL_Click(object sender, RoutedEventArgs e)
-        {
-            if (SaveData.config.WarningURL == 0)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgUrlWarningTitle, Properties.Resources.msgUrlWarning, MessageDialogStyle.AffirmativeAndNegative,
-                                new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16 });
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {
-                    SaveData.config.WarningURL++;
-                    SaveData.SaveConfig();
-                }
-            }
-
-            var url = await this.ShowInputAsync(Properties.Resources.msgUrlLoadTitle, Properties.Resources.msgUrlLoad, new MetroDialogSettings() { DialogTitleFontSize = 16, DialogMessageFontSize = 14, DefaultText = SaveData.config.DefaultURL });
-            if (string.IsNullOrEmpty(url))
-                return;
-
-            SaveData.config.DefaultURL = url;
-            SaveData.SaveConfig();
-
-            WebLoadDragDrop(url);
-            //SetupWallpaper(url, SetupDesktop.WallpaperType.url);
-        }
-
-        #endregion tile_events
-
-        #region ui_events
-        private void SubcribeUI()
-        {
-            //Subscribe to events here to prevent triggering calls during RestoreSaveSettings() todo: rewrite with data binding instead(Enum type need some extra code for convertion, skipping for now).
-            comboBoxVideoPlayer.SelectionChanged += ComboBoxVideoPlayer_SelectionChanged;
-            comboBoxGIFPlayer.SelectionChanged += ComboBoxGIFPlayer_SelectionChanged;
-            comboBoxFocusedPerf.SelectionChanged += ComboBoxFocusedPerf_SelectionChanged;
-            comboBoxFullscreenPerf.SelectionChanged += ComboBoxFullscreenPerf_SelectionChanged;
-            comboBoxMonitorPauseRule.SelectionChanged += ComboBoxMonitorPauseRule_SelectionChanged;
-            transparencyToggle.IsCheckedChanged += TransparencyToggle_IsCheckedChanged;
-            StartupToggle.IsCheckedChanged += StartupToggle_IsCheckedChanged;
-            videoMuteToggle.IsCheckedChanged += VideoMuteToggle_IsCheckedChanged;
-            comboBoxFullscreenPerf.SelectionChanged += ComboBoxFullscreenPerf_SelectionChanged1;
-            cefAudioInMuteToggle.IsCheckedChanged += CefAudioInMuteToggle_IsCheckedChanged;
-            comboBoxPauseAlgorithm.SelectionChanged += ComboBoxPauseAlgorithm_SelectionChanged;
-            TileAnimateToggle.IsCheckedChanged += TileAnimateToggle_IsCheckedChanged;
-            appMuteToggle.IsCheckedChanged += AppMuteToggle_IsCheckedChanged;
-            //fpsUIToggle.IsCheckedChanged += FpsUIToggle_IsCheckedChanged;
-            //disableUIHWToggle.IsCheckedChanged += DisableUIHWToggle_IsCheckedChanged;
-            comboBoxLanguage.SelectionChanged += ComboBoxLanguage_SelectionChanged;
-            comboBoxTheme.SelectionChanged += ComboBoxTheme_SelectionChanged;
-            audioFocusedToggle.IsCheckedChanged += AudioFocusedToggle_IsCheckedChanged;
-            cmbBoxStreamQuality.SelectionChanged += CmbBoxStreamQuality_SelectionChanged;
-            transparencySlider.ValueChanged += TransparencySlider_ValueChanged;
-            TileGenerateToggle.IsCheckedChanged += TileGenerateToggle_IsCheckedChanged;
-            comboBoxVideoPlayerScaling.SelectionChanged += ComboBoxVideoPlayerScaling_SelectionChanged;
-            comboBoxGIFPlayerScaling.SelectionChanged += ComboBoxGIFPlayerScaling_SelectionChanged;
-            comboBoxBatteryPerf.SelectionChanged += ComboBoxBatteryPerf_SelectionChanged;
-            comboBoxWpInputSettings.SelectionChanged += ComboBoxWpInputSettings_SelectionChanged;
-            chkboxMouseOtherAppsFocus.Checked += ChkboxMouseOtherAppsFocus_Checked;
-            chkboxMouseOtherAppsFocus.Unchecked += ChkboxMouseOtherAppsFocus_Checked;
-        }
-
-        private void ChkboxMouseOtherAppsFocus_Checked(object sender, RoutedEventArgs e)
-        {
-            SaveData.config.MouseInputMovAlways = chkboxMouseOtherAppsFocus.IsChecked.Value;
-            SaveData.SaveConfig();
-        }
-
-        private void ComboBoxWpInputSettings_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if(comboBoxWpInputSettings.SelectedIndex == 0)
-            {
-                WallpaperInputForwardingToggle(false);
-            }
-            else if(comboBoxWpInputSettings.SelectedIndex == 1)
-            {
-                WallpaperInputForwardingToggle(true);
-            }
-            SaveData.config.InputForwardMode = comboBoxWpInputSettings.SelectedIndex;
-            SaveData.SaveConfig();
-        }
-
-        private void ComboBoxBatteryPerf_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.BatteryPause = (SaveData.AppRulesEnum)comboBoxBatteryPerf.SelectedIndex;
-            SaveData.SaveConfig();
-        }
-
-        private void ComboBoxGIFPlayerScaling_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.GifScaler = (Stretch)comboBoxGIFPlayerScaling.SelectedIndex;
-            SaveData.SaveConfig();
-
-            var result = SetupDesktop.wallpapers.FindAll(x => x.Type == SetupDesktop.WallpaperType.gif);
-            SetupDesktop.CloseAllWallpapers(SetupDesktop.WallpaperType.gif);
-
-            if (result.Count != 0)
-            {
-                RestoreWallpaper(result);
-            }
-        }
-
-        private void ComboBoxVideoPlayerScaling_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.VideoScaler = (Stretch)comboBoxVideoPlayerScaling.SelectedIndex;
-            SaveData.SaveConfig();
-
-            var videoWp = SetupDesktop.wallpapers.FindAll(x => x.Type == SetupDesktop.WallpaperType.video); //youtube is started as apptype, not included!
-            SetupDesktop.CloseAllWallpapers(SetupDesktop.WallpaperType.video);
-
-            if (videoWp.Count != 0)
-            {
-                RestoreWallpaper(videoWp);
-            }
-        }
-
-        private void TileGenerateToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            SaveData.config.GenerateTile = TileGenerateToggle.IsChecked.Value;
-            SaveData.SaveConfig();
-        }
-
-        private void TransparencySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            this.Opacity = transparencySlider.Value;
-            SaveData.config.AppTransparencyPercent = transparencySlider.Value;
-            SaveData.SaveConfig();
-        }
-
-        private void CmbBoxStreamQuality_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (cmbBoxStreamQuality.SelectedIndex == -1)
-                return;
-
-            SaveData.config.StreamQuality = (SaveData.StreamQualitySuggestion)cmbBoxStreamQuality.SelectedIndex;
-            SaveData.SaveConfig();
-           
-            var streamWP = SetupDesktop.wallpapers.FindAll(x => x.Type == SetupDesktop.WallpaperType.video_stream); 
-            SetupDesktop.CloseAllWallpapers(SetupDesktop.WallpaperType.video_stream);
-
-            if (streamWP.Count != 0)
-            {
-                RestoreWallpaper(streamWP);
-            }
-            
-        }
-
-        private void AudioFocusedToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            SaveData.config.AlwaysAudio = audioFocusedToggle.IsChecked.Value;
-            SaveData.SaveConfig();
-        }
-
-        private void ComboBoxTheme_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (comboBoxTheme.SelectedIndex == -1)
-                return;
-            //todo:- do it more elegantly.
-            SaveData.config.Theme = comboBoxTheme.SelectedIndex;
-            //SaveData.SaveConfig();
-
-            RestartLively();
-        }
-
-        private void AppMuteToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            SaveData.config.MuteAppWP = !appMuteToggle.IsChecked.Value;
-            SaveData.SaveConfig();
-        }
-
-        private void RestoreMenuSettings()
-        {
-            chkboxMouseOtherAppsFocus.IsChecked = SaveData.config.MouseInputMovAlways;
-
-            if (SaveData.config.InputForwardMode == 1)
-            {
-                WallpaperInputForwardingToggle(true);
-            }
-
-            try
-            {
-                comboBoxWpInputSettings.SelectedIndex = SaveData.config.InputForwardMode;
-            }
-            catch(ArgumentOutOfRangeException)
-            {
-                SaveData.config.InputForwardMode = 1;
-                SaveData.SaveConfig();
-                comboBoxWpInputSettings.SelectedIndex = 1;
-            }
-
-            if (!App.isPortableBuild)
-            {
-                lblPortableTxt.Visibility = Visibility.Collapsed;
-            }
-            
-            if (SaveData.config.AppTransparency)
-            {
-                if (SaveData.config.AppTransparencyPercent >= 0.5 && SaveData.config.AppTransparencyPercent <= 0.9)
-                {
-                    this.Opacity = SaveData.config.AppTransparencyPercent;
-                }
-                else
-                {
-                    this.Opacity = 0.9f;
-                }
-                transparencyToggle.IsChecked = true;
-                transparencySlider.IsEnabled = true;
-            }
-            else
-            {
-                this.Opacity = 1.0f;
-                transparencyToggle.IsChecked = false;
-                transparencySlider.IsEnabled = false;
-            }
-
-            if (SaveData.config.AppTransparencyPercent >= 0.5 && SaveData.config.AppTransparencyPercent <= 0.9)
-                transparencySlider.Value = SaveData.config.AppTransparencyPercent;
-            else
-                transparencySlider.Value = 0.9f;
-
-            audioFocusedToggle.IsChecked = SaveData.config.AlwaysAudio;
-            TileGenerateToggle.IsChecked = SaveData.config.GenerateTile;
-            appMuteToggle.IsChecked = !SaveData.config.MuteAppWP;      
-            TileAnimateToggle.IsChecked = SaveData.config.LiveTile;
-            //fpsUIToggle.IsChecked = SaveData.config.Ui120FPS;
-            //disableUIHWToggle.IsChecked = SaveData.config.UiDisableHW;
-
-            try
-            {
-                comboBoxGIFPlayerScaling.SelectedIndex = (int)SaveData.config.GifScaler;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.GifScaler = Stretch.UniformToFill;
-                SaveData.SaveConfig();
-                comboBoxGIFPlayerScaling.SelectedIndex = (int)SaveData.config.GifScaler;
-            }
-
-            try
-            {
-                comboBoxBatteryPerf.SelectedIndex = (int)SaveData.config.BatteryPause;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.BatteryPause = AppRulesEnum.ignore;
-                SaveData.SaveConfig();
-                comboBoxBatteryPerf.SelectedIndex = (int)SaveData.config.BatteryPause;
-            }
-
-            try
-            {
-                comboBoxVideoPlayerScaling.SelectedIndex = (int)SaveData.config.VideoScaler;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.VideoScaler= Stretch.UniformToFill;
-                SaveData.SaveConfig();
-                comboBoxVideoPlayerScaling.SelectedIndex = (int)SaveData.config.VideoScaler;
-            }
-
-            try
-            {
-                comboBoxPauseAlgorithm.SelectedIndex = (int)SaveData.config.ProcessMonitorAlgorithm;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.ProcessMonitorAlgorithm = SaveData.ProcessMonitorAlgorithm.foreground;
-                SaveData.SaveConfig();
-                comboBoxPauseAlgorithm.SelectedIndex = (int)SaveData.config.ProcessMonitorAlgorithm;
-            }
-
-            //stream
-            try
-            {
-                cmbBoxStreamQuality.SelectedIndex = (int)SaveData.config.StreamQuality;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.StreamQuality = SaveData.StreamQualitySuggestion.h720p;
-                SaveData.SaveConfig();
-                cmbBoxStreamQuality.SelectedIndex = (int)SaveData.config.StreamQuality;
-            }
-
-
-            cefAudioInMuteToggle.IsChecked = !SaveData.config.MuteCefAudioIn;
-            if (!SaveData.config.MuteCefAudioIn)
-                web_audio_WarningText.Visibility = Visibility.Hidden;
-            else
-                web_audio_WarningText.Visibility = Visibility.Visible;
-
-            videoMuteToggle.IsChecked = !SaveData.config.MuteVideo;
-
-            // performance ui
-
-            try
-            {
-                comboBoxFullscreenPerf.SelectedIndex = (int)SaveData.config.AppFullscreenPause;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.AppFullscreenPause = SaveData.AppRulesEnum.pause;
-                SaveData.SaveConfig();
-                comboBoxFullscreenPerf.SelectedIndex = (int)SaveData.config.AppFullscreenPause;
-            }
-
-            try
-            {
-                comboBoxFocusedPerf.SelectedIndex = (int)SaveData.config.AppFocusPause;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.AppFocusPause = SaveData.AppRulesEnum.ignore;
-                SaveData.SaveConfig();
-                comboBoxFocusedPerf.SelectedIndex = (int)SaveData.config.AppFocusPause;
-            }
-
-            try
-            {
-                comboBoxFullscreenPerf.SelectedIndex = (int)SaveData.config.AppFullscreenPause;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.AppFullscreenPause = SaveData.AppRulesEnum.pause;
-                SaveData.SaveConfig();
-                comboBoxFullscreenPerf.SelectedIndex = (int)SaveData.config.AppFullscreenPause;
-            }
-
-            try
-            {
-                comboBoxMonitorPauseRule.SelectedIndex = (int)SaveData.config.DisplayPauseSettings;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.DisplayPauseSettings = SaveData.DisplayPauseEnum.perdisplay;
-                SaveData.SaveConfig();
-                comboBoxMonitorPauseRule.SelectedIndex = (int)SaveData.config.DisplayPauseSettings;
-            }
-
-            try
-            {
-                comboBoxVideoPlayer.SelectedIndex = (int)SaveData.config.VidPlayer;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.VidPlayer = SaveData.VideoPlayer.windowsmp;
-                SaveData.SaveConfig();
-                comboBoxVideoPlayer.SelectedIndex = (int)SaveData.config.VidPlayer;
-            }
-
-            try
-            {
-                comboBoxGIFPlayer.SelectedIndex = (int)SaveData.config.GifPlayer;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.VidPlayer = (int)SaveData.GIFPlayer.xaml;
-                SaveData.SaveConfig();
-                comboBoxGIFPlayer.SelectedIndex = (int)SaveData.config.GifPlayer;
-            }
-            //StartupToggle.IsChecked = SaveData.config.Startup;
-            StartupToggle.IsChecked = CheckStartupRegistry();
-
-            #region shit
-            //todo:- do it more elegantly.
-            //language
-            foreach (var item in SaveData.supportedLanguages)
-            {
-                comboBoxLanguage.Items.Add(item.Language);
-            }
-
-            bool found = false;
-            for (int i = 0; i < SaveData.supportedLanguages.Length; i++)
-            {
-                if (Array.Exists(SaveData.supportedLanguages[i].Codes, x => x.Equals(SaveData.config.Language, StringComparison.OrdinalIgnoreCase)))
-                {
-                    comboBoxLanguage.SelectedIndex = i;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                comboBoxLanguage.SelectedIndex = 0; //en-US
-            }
-            
-            //theme
-            foreach (var item in SaveData.livelyThemes)
-            {
-                comboBoxTheme.Items.Add(item.Name);
-            }
-
-            try
-            {
-                comboBoxTheme.SelectedIndex = SaveData.config.Theme;
-            }
-            catch(ArgumentOutOfRangeException)
-            {
-                SaveData.config.Theme = 0; //DarkLime
-                SaveData.SaveConfig();
-                comboBoxTheme.SelectedIndex = SaveData.config.Theme;
-            }
-
-            #endregion shit
-
-        }
-
-        private void ComboBoxPauseAlgorithm_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (comboBoxPauseAlgorithm.SelectedIndex == 1)
-            {
-                if (Multiscreen)
-                {
-                    comboBoxPauseAlgorithm.SelectedIndex = 0;
-                    WpfNotification(NotificationType.info, Properties.Resources.txtLivelyErrorMsgTitle, "Currently this algorithm is incomplete in multiple display systems, disabling.");
-                    return;
-                }
-            }
-
-            SaveData.config.ProcessMonitorAlgorithm = (SaveData.ProcessMonitorAlgorithm)comboBoxPauseAlgorithm.SelectedIndex;
-            SaveData.SaveConfig();
-        }
-
-        private void CefAudioInMuteToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-
-            SaveData.config.MuteCefAudioIn = !cefAudioInMuteToggle.IsChecked.Value;
-            SaveData.SaveConfig();
-
-            if (!SaveData.config.MuteCefAudioIn)
-                web_audio_WarningText.Visibility = Visibility.Hidden;
-            else
-                web_audio_WarningText.Visibility = Visibility.Visible;
-        }
-
-        private void ComboBoxFullscreenPerf_SelectionChanged1(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.AppFullscreenPause = (SaveData.AppRulesEnum)comboBoxFullscreenPerf.SelectedIndex;
-            SaveData.SaveConfig();
-        }
-
-        private void VideoMuteToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            SaveData.config.MuteVideo = !videoMuteToggle.IsChecked.Value;
-            SaveData.SaveConfig();
-        }
-
-        private void ComboBoxMonitorPauseRule_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.DisplayPauseSettings = (SaveData.DisplayPauseEnum)comboBoxMonitorPauseRule.SelectedIndex;
-            try
-            {
-                comboBoxMonitorPauseRule.SelectedIndex = (int)SaveData.config.DisplayPauseSettings;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.DisplayPauseSettings = SaveData.DisplayPauseEnum.perdisplay;
-                comboBoxMonitorPauseRule.SelectedIndex = (int)SaveData.config.DisplayPauseSettings;
-            }
-            SaveData.SaveConfig();
-        }
-
-        private void ComboBoxFullscreenPerf_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.AppFullscreenPause = (SaveData.AppRulesEnum)comboBoxFullscreenPerf.SelectedIndex;
-            try
-            {
-                comboBoxFullscreenPerf.SelectedIndex = (int)SaveData.config.AppFullscreenPause;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.AppFullscreenPause = SaveData.AppRulesEnum.pause;
-                comboBoxFullscreenPerf.SelectedIndex = (int)SaveData.config.AppFullscreenPause;
-            }
-            SaveData.SaveConfig();
-        }
-
-        private void ComboBoxFocusedPerf_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.AppFocusPause = (SaveData.AppRulesEnum)comboBoxFocusedPerf.SelectedIndex;
-            try
-            {
-                comboBoxFocusedPerf.SelectedIndex = (int)SaveData.config.AppFocusPause;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                SaveData.config.AppFocusPause = SaveData.AppRulesEnum.ignore;
-                comboBoxFocusedPerf.SelectedIndex = (int)SaveData.config.AppFocusPause;
-            }
-            SaveData.SaveConfig();
-        }
-
-        private void TransparencyToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            if (transparencyToggle.IsChecked == true)
-            {
-                if (SaveData.config.AppTransparencyPercent >= 0.5 && SaveData.config.AppTransparencyPercent <= 0.9)
-                    this.Opacity = SaveData.config.AppTransparencyPercent;
-                else
-                    this.Opacity = 0.9f;
-                SaveData.config.AppTransparency = true;
-                transparencySlider.IsEnabled = true;
-            }
-            else
-            {
-                this.Opacity = 1.0f;
-                SaveData.config.AppTransparency = false;
-                transparencySlider.IsEnabled = false;
-            }
-            SaveData.SaveConfig();
-        }
-
-
-        private void TileAnimateToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            if (TileAnimateToggle.IsChecked == true)
-            {
-                SaveData.config.LiveTile = true;
-                foreach (var item in tileDataList)
-                {
-                    if (File.Exists(item.LivelyInfo.Preview)) //only if preview gif exist, clear existing image.
-                    {
-                        item.Img = null;
-                    }
-                }
-                InitializeTilePreviewGifs(); //loads first 15gifs. into TilePreview
-            }
-            else
-            {
-                SaveData.config.LiveTile = false;
-                foreach (var item in tileDataList)
-                {
-                    item.Img = item.LoadConvertImage(item.LivelyInfo.Thumbnail);
-                    //item.Img = item.LoadImage(item.LivelyInfo.Thumbnail);
-                    item.TilePreview = null;
-                }
-            }
-
-            textBoxLibrarySearch.Text = null;
-            ScrollViewer scrollViewer = GetDescendantByType(wallpapersLV, typeof(ScrollViewer)) as ScrollViewer;
-            if (scrollViewer != null)
-            {
-                scrollViewer.ScrollToVerticalOffset(0);
-            }
-            wallpapersLV.Items.Refresh(); //force redraw: not refreshing everything, even with INotifyPropertyChanged.
-            SaveData.SaveConfig();
-        }
-
-        public void Button_Click_HowTo(object sender, RoutedEventArgs e)
-        {
-            Dialogues.HelpWindow w = new Dialogues.HelpWindow
-            {
-                Owner = this,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-            w.ShowDialog();
-        }
-
-        /// <summary>
-        /// Display layout panel show.
-        /// </summary>
-        private void Image_Display_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            DisplayLayoutWindow displayWindow = new DisplayLayoutWindow(this)
-            {
-                Owner = Window.GetWindow(this)
-            };
-            displayWindow.ShowDialog();
-            displayWindow.Close();
-            this.Activate();
-            //Debug.WriteLine("retured val:- " + DisplayLayoutWindow.index);
-        }
-
-        private void Display_layout_Btn(object sender, EventArgs e)
-        {
-            DisplayLayoutWindow displayWindow = new DisplayLayoutWindow(this)
-            {
-                Owner = Window.GetWindow(this)
-            };
-            displayWindow.ShowDialog();
-            displayWindow.Close();
-            this.Activate();
-            //Debug.WriteLine("retured val:- " + DisplayLayoutWindow.index);
-        }
-
-        /// <summary>
-        /// Videoplayer change, restarts currently playing wp's to newly selected system.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void ComboBoxVideoPlayer_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.VidPlayer = (SaveData.VideoPlayer)comboBoxVideoPlayer.SelectedIndex;
-            SaveData.SaveConfig();
-
-            var videoWp = SetupDesktop.wallpapers.FindAll(x => x.Type == SetupDesktop.WallpaperType.video); //youtube is started as apptype, not included!
-            SetupDesktop.CloseAllWallpapers(SetupDesktop.WallpaperType.video);
-
-            if (videoWp.Count != 0)
-            {
-                RestoreWallpaper(videoWp);
-            }
-        }
-
-        /// <summary>
-        ///  Gif player change, restarts currently playing wp's to newly selected system.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void ComboBoxGIFPlayer_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            SaveData.config.GifPlayer = (SaveData.GIFPlayer)comboBoxGIFPlayer.SelectedIndex;
-            SaveData.SaveConfig();
-
-            var result = SetupDesktop.wallpapers.FindAll(x => x.Type == SetupDesktop.WallpaperType.gif);
-            SetupDesktop.CloseAllWallpapers(SetupDesktop.WallpaperType.gif);
-
-            if (result.Count != 0)
-            {
-                RestoreWallpaper(result);
-            }
-        }
-
-        private void Hyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
-        {
-            try
-            {
-                Process.Start(e.Uri.AbsoluteUri);
-            }
-            catch { } //if no default mail client, win7 error.
-        }
-
-        private void Hyperlink_SupportPage(object sender, RoutedEventArgs e)
-        {
-            Process.Start(@"https://ko-fi.com/rocksdanister");
-        }
-
-        private void Button_Click_CreateWallpaper(object sender, RoutedEventArgs e)
-        {
-            CreateWallpaper obj = new CreateWallpaper
-            {
-                Owner = this,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-            obj.ShowDialog();
-        }
-
-        /// <summary>
-        /// Shows warning msg with link before proceeding to load hyperlink.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private async void Hyperlink_RequestNavigate_Warning(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
-        {
-            var ch = await this.ShowMessageAsync(Properties.Resources.msgLoadExternalLinkTitle, Properties.Resources.msgLoadExternalLink + "\n" + e.Uri.ToString(), MessageDialogStyle.AffirmativeAndNegative,
-                         new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16 });
-
-            if (ch == MessageDialogResult.Negative)
-                return;
-            else if (ch == MessageDialogResult.Affirmative)
-            {
-
-            }
-
-            Process.Start(e.Uri.AbsoluteUri);
-        }
-
-        /// <summary>
-        /// Drag and Drop wallpaper.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void MetroWindow_Drop(object sender, System.Windows.DragEventArgs e)
-        {
-            if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
-            {
-                string[] droppedFiles = e.Data.GetData(System.Windows.DataFormats.FileDrop, true) as string[];
-
-                if ((null == droppedFiles) || (!droppedFiles.Any())) { return; }
-
-                Logger.Info("Dropped File, Selecting first file:- " + droppedFiles[0]);
-
-                if (String.IsNullOrWhiteSpace(Path.GetExtension(droppedFiles[0])))
-                    return;
-
-                if (Path.GetExtension(droppedFiles[0]).Equals(".gif", StringComparison.OrdinalIgnoreCase))
-                    SetupWallpaper(droppedFiles[0], SetupDesktop.WallpaperType.gif);
-                else if (Path.GetExtension(droppedFiles[0]).Equals(".html", StringComparison.OrdinalIgnoreCase))
-                    SetupWallpaper(droppedFiles[0], SetupDesktop.WallpaperType.web);
-                else if (Path.GetExtension(droppedFiles[0]).Equals(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    tabControl1.SelectedIndex = 0; //switch to library tab.
-                    WallpaperInstaller(droppedFiles[0]);
-                }
-                else if (IsVideoFile(droppedFiles[0]))
-                    SetupWallpaper(droppedFiles[0], SetupDesktop.WallpaperType.video);
-                else
-                {
-                    //exe format is skipped for drag & drop, mainly due to security reasons.
-                    if (this.IsVisible)
-                        this.Activate(); //bugfix.
-
-                    System.Windows.Controls.Button btn = new System.Windows.Controls.Button
-                    {
-                        Margin = new Thickness(12, 8, 12, 8),
-                        HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
-                        Content = "Goto Type"
-                    };
-                    btn.Click += Btn_Gototab;
-
-                    notify.Manager.CreateMessage()
-                     .Accent("#808080")
-                     .HasBadge("Info")
-                     .Background("#333")
-                     .HasHeader(Properties.Resources.msgDragDropOtherFormatsTitle)
-                     .HasMessage(Properties.Resources.msgDragDropOtherFormats + "\n" + droppedFiles[0])
-                     .Dismiss().WithButton("Ok", button => { })
-                     .WithAdditionalContent(ContentLocation.Bottom,
-                       new Border
-                       {
-                           BorderThickness = new Thickness(0, 1, 0, 0),
-                           BorderBrush = new SolidColorBrush(Color.FromArgb(128, 28, 28, 28)),
-                           Child = btn
-                       })
-                     .Queue();
-
-                }
-
-            }
-            else if(e.Data.GetDataPresent(System.Windows.DataFormats.Text))
-            {
-                string droppedText = (string)e.Data.GetData(System.Windows.DataFormats.Text, true);
-                Logger.Info("Dropped Text:- " + droppedText);
-                if ( (String.IsNullOrWhiteSpace(droppedText)) ) 
-                { 
-                    return;
-                }
-                WebLoadDragDrop(droppedText);
-            }
-        }
-
-        private void Btn_Gototab(object sender, RoutedEventArgs e)
-        {
-            tabControl1.SelectedIndex = 1;   
-        }
-
-        private void WebLoadDragDrop(string link)
-        {
-            if (link.Contains("youtube.com/watch?v=") || link.Contains("bilibili.com/video/")) //drag drop only for youtube.com streams
-            {
-                SetupWallpaper(link, SetupDesktop.WallpaperType.video_stream);
-            }
-            else
-            {
-                SetupWallpaper(link, SetupDesktop.WallpaperType.url);
-            }
-        }
-
-        /// <summary>
-        /// Returns commandline argument for youtube-dl + mpv, depending on the saved Quality setting.
-        /// todo: add codec selection.
-        /// </summary>
-        /// <param name="link"></param>
-        /// <returns></returns>
-        private static string YoutubeDLArgGenerate(string link)
-        {
-            string quality = null;
-            if (!link.Contains("bilibili.com/video/")) //youtube-dl failing if quality flag is set.
-            {
-                switch (SaveData.config.StreamQuality)
-                {
-                    case StreamQualitySuggestion.best:
-                        quality = String.Empty;
-                        break;
-                    case StreamQualitySuggestion.h2160p:
-                        quality = " --ytdl-format bestvideo[height<=2160]+bestaudio/best[height<=2160]";
-                        break;
-                    case StreamQualitySuggestion.h1440p:
-                        quality = " --ytdl-format bestvideo[height<=1440]+bestaudio/best[height<=1440]";
-                        break;
-                    case StreamQualitySuggestion.h1080p:
-                        quality = " --ytdl-format bestvideo[height<=1080]+bestaudio/best[height<=1080]";
-                        break;
-                    case StreamQualitySuggestion.h720p:
-                        quality = " --ytdl-format bestvideo[height<=720]+bestaudio/best[height<=720]";
-                        break;
-                    case StreamQualitySuggestion.h480p:
-                        quality = " --ytdl-format bestvideo[height<=480]+bestaudio/best[height<=480]";
-                        break;
-                    default:
-                        quality = " --ytdl-format bestvideo[height<=720]+bestaudio/best[height<=720]";
-                        break;
-                }
-            }
-            else
-            {
-                quality = String.Empty;
-            }
-
-            return "\"" + link + "\"" + " --force-window=yes --loop-file --keep-open --hwdec=yes" + quality;
-        }
-
-//        public readonly static string[] formatsVideo = { ".dat", ".wmv", ".3g2", ".3gp", ".3gp2", ".3gpp", ".amv", ".asf",  ".avi", ".bin", ".cue", ".divx", ".dv", ".flv", ".gxf", ".iso", ".m1v", ".m2v", ".m2t", ".m2ts", ".m4v",
-//                                        ".mkv", ".mov", ".mp2", ".mp2v", ".mp4", ".mp4v", ".mpa", ".mpe", ".mpeg", ".mpeg1", ".mpeg2", ".mpeg4", ".mpg", ".mpv2", ".mts", ".nsv", ".nuv", ".ogg", ".ogm", ".ogv", ".ogx", ".ps", ".rec", ".rm",
-//                                        ".rmvb", ".tod", ".ts", ".tts", ".vob", ".vro", ".webm" };
-        static bool IsVideoFile(string path)
-        {
-            string[] formatsVideo = { ".dat", ".wmv", ".3g2", ".3gp", ".3gp2", ".3gpp", ".amv", ".asf",  ".avi", ".bin", ".cue", ".divx", ".dv", ".flv", ".gxf", ".iso", ".m1v", ".m2v", ".m2t", ".m2ts", ".m4v",
-                                        ".mkv", ".mov", ".mp2", ".mp2v", ".mp4", ".mp4v", ".mpa", ".mpe", ".mpeg", ".mpeg1", ".mpeg2", ".mpeg4", ".mpg", ".mpv2", ".mts", ".nsv", ".nuv", ".ogg", ".ogm", ".ogv", ".ogx", ".ps", ".rec", ".rm",
-                                        ".rmvb", ".tod", ".ts", ".tts", ".vob", ".vro", ".webm" };
-            if (formatsVideo.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-            return false;
-        }
-
-        private void Button_AppRule_Click(object sender, RoutedEventArgs e)
-        {
-            Dialogues.ApplicationRuleDialogWindow w = new Dialogues.ApplicationRuleDialogWindow
-            {
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this
-            };
-            w.ShowDialog();
-        }
-
-        /*
-        private void DisableUIHWToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            if (disableUIHWToggle.IsChecked == true)
-                SaveData.config.UiDisableHW = true;
-            else
-                SaveData.config.UiDisableHW = false;
-
-            SaveData.SaveConfig();
-        }
-
-        private void FpsUIToggle_IsCheckedChanged(object sender, EventArgs e)
-        {
-            if (fpsUIToggle.IsChecked == true)
-                SaveData.config.Ui120FPS = true;
-            else
-                SaveData.config.Ui120FPS = false;
-
-            SaveData.SaveConfig();
-        }
-        */
-        private void ComboBoxLanguage_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (comboBoxLanguage.SelectedIndex == -1)
-                return;
-            //todo:- do it more elegantly.
-            SaveData.config.Language = SaveData.supportedLanguages[comboBoxLanguage.SelectedIndex].Codes[0];
-            //SaveData.SaveConfig();
-            RestartLively();
-        }
-
-        /// <summary>
-        /// save config & restart lively.
-        /// </summary>
-        public static void RestartLively()
-        {
-            //Need more testing, mutex(for single instance of lively) release might not be quick enough.
-            _isExit = true;
-            SaveData.config.IsRestart = true;
-            SaveData.SaveConfig();
-            System.Diagnostics.Process.Start(System.Windows.Application.ResourceAssembly.Location);
-            System.Windows.Application.Current.Shutdown();
-        }
-
-        Dialogues.Changelog changelogWindow = null;
-        private void lblVersionNumber_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            if (changelogWindow == null)
-            {
-                changelogWindow = new Dialogues.Changelog
-                {
-                    WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                    ShowActivated = true
-                };
-                changelogWindow.Closed += ChangelogWindow_Closed;
-                changelogWindow.Show();
-            }
-            else
-            {
-                if (changelogWindow.IsVisible)
-                {
-                    changelogWindow.Activate();
-                }
-            }
-        }
-
-        private void ChangelogWindow_Closed(object sender, EventArgs e)
-        {
-            changelogWindow = null;
-        }
-
-        private void hyperlinkUpdateBanner_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            ShowLivelyUpdateWindow();
-        }
-
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        #endregion ui_events
-
+        
         #region notification_dialogues
 
         public enum NotificationType

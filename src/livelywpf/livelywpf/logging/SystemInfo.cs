@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Management;
 using System.Globalization;
 
-namespace livelywpf
+namespace livelywpf.logging
 {
     /// <summary>
     /// Retrieve system information:- operating system version, cpu & gpu name.

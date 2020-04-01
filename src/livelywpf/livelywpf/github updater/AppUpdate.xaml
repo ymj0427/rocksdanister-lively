@@ -25,7 +25,7 @@
                         <Hyperlink RequestNavigate="Hyperlink_RequestNavigate" NavigateUri="https://github.com/rocksdanister/lively/releases" Foreground="{DynamicResource AccentColorBrush2}">Full changelog</Hyperlink>
             </TextBlock>
             <!--<TextBlock x:Name="txtDownload" Visibility="Hidden" TextWrapping="Wrap" Text="Downloading.." Margin="10,0,0,0"/>-->
-            <Controls:MetroProgressBar x:Name="progressBar1" Height="20"  Width="374"  Foreground="{DynamicResource AccentColorBrush}"  Background="{DynamicResource AccentColorBrush4}" Loaded="progressBar1_Loaded"/>
+            <Controls:MetroProgressBar x:Name="progressBar1" Height="20"  Width="374"  Foreground="{DynamicResource AccentColorBrush}"  Background="{DynamicResource AccentColorBrush4}"/>
             <TextBlock x:Name="txtDownloadProgress" TextWrapping="Wrap" Text="-/-MB" Foreground="{DynamicResource AccentColorBrush2}" HorizontalAlignment="Right" Margin="0,0,15,0"/>
             <Button x:Name="btnInstall" IsEnabled="False" Content="{x:Static p:Resources.txtDownload}"   Click="btnInstall_Click"  Width="130" Height="30"/>
             <CheckBox x:Name="chkMarkIgnore" IsEnabled="False"  Margin="10,0,0,0">Ignore update</CheckBox>

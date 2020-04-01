@@ -26,7 +26,7 @@ namespace livelywpf
             {
                 if (isFullScreen)  //fullscreen app, pauses all wp's & mute audio.
                 {
-                    MainWindow.SwitchTrayIcon(true);
+                    utility.SystemTray.SwitchTrayIcon(true);
                     foreach (var item in SetupDesktop.mediakitPlayers)
                     {
                         //item.mp.StopPlayer();
@@ -83,7 +83,7 @@ namespace livelywpf
                 }
                 else //non fullscreen application infocus, mostly mutes audio & resume playback of all wp's.
                 {
-                    MainWindow.SwitchTrayIcon(false);
+                    utility.SystemTray.SwitchTrayIcon(false);
                     foreach (var item in SetupDesktop.mediakitPlayers)
                     {
                         if (!SaveData.config.AlwaysAudio || SaveData.config.MuteVideo || displayDeviceName != null) // (user setting || multimonitor scenario)
@@ -185,7 +185,7 @@ namespace livelywpf
             {
                 if (isFullScreen) //desktop(why else would u call resume for fullscreen app) etc, unmutes audio & resume wp's playback.
                 {
-                    MainWindow.SwitchTrayIcon(false);
+                    utility.SystemTray.SwitchTrayIcon(false);
                     foreach (var item in SetupDesktop.mediakitPlayers)
                     {
                         if (SaveData.config.MuteVideo || display != null) // (user setting || multimonitor scenario)
@@ -272,7 +272,7 @@ namespace livelywpf
                 }
                 else //non fullscreen application infocus, unmutes audio & resume wp's playback.
                 {
-                    MainWindow.SwitchTrayIcon(false);
+                    utility.SystemTray.SwitchTrayIcon(false);
                     foreach (var item in SetupDesktop.mediakitPlayers)
                     {
                         if (SaveData.config.MuteVideo || display != null) // (user setting || multimonitor scenario)

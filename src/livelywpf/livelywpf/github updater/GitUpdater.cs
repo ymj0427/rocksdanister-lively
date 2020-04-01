@@ -8,9 +8,43 @@ using System.Threading.Tasks;
 
 namespace livelywpf.Lively.Helpers
 {
-    static class UpdaterGit
+    static class GitUpdater
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+        
+        public class GitData
+        {
+            public Octokit.Release Release { get; set; }
+            public string GitUrl { get; set; }
+            public int Result { get; set; }
+        }
+
+        public static async Task<GitData> CheckForUpdate(string respositoryName, string userName, string releaseFileName, int startDelay)
+        {
+            Octokit.Release gitRelease = null;
+            string gitUrl = null;
+            int result = 0;
+            try
+            {
+                gitRelease = await GitUpdater.GetLatestRelease(respositoryName, userName, startDelay); 
+                result = GitUpdater.CompareAssemblyVersion(gitRelease);
+                try
+                {
+                    //asset format: lively_setup_x86_full_vXXXX.exe, XXXX - 4 digit version no.
+                    gitUrl = await GitUpdater.GetAssetUrl(releaseFileName, gitRelease, respositoryName, userName);
+                }
+                catch (Exception e)
+                {
+                    throw;
+                }
+            }
+            catch 
+            {
+                throw;
+            }
+            return new GitData() { Release = gitRelease, GitUrl = gitUrl, Result = result };
+        }
+
         /// <summary>
         /// Get latest release from github after given delay.
         /// Throws exception.
@@ -19,7 +53,7 @@ namespace livelywpf.Lively.Helpers
         /// <param name="userName"></param>
         /// <param name="startDelay"></param>
         /// <returns></returns>
-        public static async Task<Release> GetLatestRelease(string repositoryName, string userName, int startDelay = 45000)
+        private static async Task<Release> GetLatestRelease(string repositoryName, string userName, int startDelay = 45000)
         {
             await Task.Delay(startDelay); //45sec delay (computer startup..)
                                           //await Task.Delay(1000);
@@ -40,7 +74,7 @@ namespace livelywpf.Lively.Helpers
         /// <param name="repositoryName"></param>
         /// <param name="userName"></param>
         /// <returns></returns>
-        public static async Task<string> GetAssetUrl(string assetNameSubstring, Release release, string repositoryName, string userName)
+        private static async Task<string> GetAssetUrl(string assetNameSubstring, Release release, string repositoryName, string userName)
         {
             GitHubClient client = new GitHubClient(new ProductHeaderValue(repositoryName));
             var allAssets = await client.Repository.Release.GetAllAssets(userName, repositoryName, release.Id);
@@ -71,7 +105,7 @@ namespace livelywpf.Lively.Helpers
         /// <param name="substring"></param>
         /// <param name="comp"></param>
         /// <returns></returns>
-        public static bool Contains(String str, String substring,
+        private static bool Contains(String str, String substring,
                                     StringComparison comp)
         {
             if (substring == null)

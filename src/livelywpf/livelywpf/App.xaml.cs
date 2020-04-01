@@ -29,29 +29,27 @@ namespace livelywpf
 
         /// <summary>
         /// portable lively build, no installer.
-        /// Do not forget to also update livelysubprocess project.
+        /// Do not forget to also update livelysubprocess project variable.
         /// </summary>
-        public static readonly bool isPortableBuild = false;
-        //folder paths
+        public static readonly bool isPortableBuild = true;
+        /// <summary>
+        /// Wallpapers/plugin install directory.
+        /// </summary>
         public static string PathData { get; private set; }
-        /*
-        public static string pathSaveData = Path.Combine(pathData, "SaveData");
-        public static string pathWpTmp = Path.Combine(pathData, "SaveData", "wptmp");
-        public static string pathWallpapers = Path.Combine(pathData, "wallpapers");
-        public static string pathTmpData = Path.Combine(pathData, "tmpdata");
-        public static string pathWpData = Path.Combine(pathData, "tmpdata", "wpdata");
-        */
 
         protected override void OnStartup(StartupEventArgs e)
         {
             if (isPortableBuild)
             {
+                //within app directory.
                 PathData = AppDomain.CurrentDomain.BaseDirectory;
             }
             else
             {
+                //..Documents/Lively Wallpaper/
                 PathData = Path.Combine(System.Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Lively Wallpaper");
             }
+
             //delete residue tempfiles if any!
             FileOperations.EmptyDirectory(Path.Combine(PathData, "tmpdata"));
             try
@@ -66,11 +64,11 @@ namespace livelywpf
             }
             catch(Exception ex)
             {
-                //not logging here, something must be seriously wrong.. just display & terminate.
+                //not logging here, something must be seriously wrong.. just display msg & terminate.
                 MessageBox.Show(ex.Message, Props.Resources.txtLivelyErrorMsgTitle, MessageBoxButton.OK, MessageBoxImage.Error);
-                Environment.Exit(1);
+                Environment.Exit(1); //exit when msg-loop not ready.
             }
-
+            
             SaveData.LoadConfig();
 
             #region language
@@ -79,6 +77,7 @@ namespace livelywpf
             //System.Threading.Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("zh-CN"); //zh-CN
             #endregion language
 
+            //Lively previous instance did not close properly.
             if (!SaveData.config.SafeShutdown)
             {
                 //clearing previous wp persisting image if any (not required, subProcess clears it).
@@ -110,6 +109,7 @@ namespace livelywpf
                 }
 
             }
+            //resetting savefile.
             SaveData.config.SafeShutdown = false;
             SaveData.SaveConfig();
 
@@ -144,21 +144,8 @@ namespace livelywpf
             //ThemeManager.ChangeAppStyle(Application.Current, ThemeManager.GetAccent("CustomAccent1"), ThemeManager.GetAppTheme(SaveData.livelyThemes[SaveData.config.Theme].Base));
             #endregion theme
 
-            #region nlog
-            var config = new NLog.Config.LoggingConfiguration();
-
-            // Targets where to log to: File and Console
-            var logfile = new NLog.Targets.FileTarget("logfile") { FileName = Path.Combine(PathData, "logfile.txt"), DeleteOldFileOnStartup = true};
-            var logconsole = new NLog.Targets.ConsoleTarget("logconsole");
-
-            // Rules for mapping loggers to targets            
-            config.AddRule(LogLevel.Info, LogLevel.Fatal, logconsole);
-            config.AddRule(LogLevel.Debug, LogLevel.Fatal, logfile);
-
-            // Apply config           
-            NLog.LogManager.Configuration = config;
-            #endregion nlog
-
+            livelywpf.logging.Log.InitializeLog();
+            livelywpf.logging.SystemInfo.LogHardwareInfo();
             base.OnStartup(e);
 
             SetupExceptionHandling();
@@ -171,7 +158,7 @@ namespace livelywpf
 
                 W.Show();
                 W.UpdateWallpaperLibrary(); 
-
+                //Show help window.
                 Dialogues.HelpWindow hw = new Dialogues.HelpWindow
                 {
                     Owner = W,
@@ -180,6 +167,7 @@ namespace livelywpf
                 hw.ShowDialog();              
             }
 
+            //lively restarting.
             if(SaveData.config.IsRestart)
             {
                 SaveData.config.IsRestart = false;
@@ -196,6 +184,9 @@ namespace livelywpf
             
         }
 
+        /// <summary>
+        /// Log uncaught/crash exceptions. 
+        /// </summary>
         private void SetupExceptionHandling()
         {
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
@@ -222,7 +213,7 @@ namespace livelywpf
             }
             finally
             {
-                LogSavedData();
+                LogLivelyConfigData();
                 Logger.Error(message + "\n" + exception.ToString());                
             }
 
@@ -231,8 +222,7 @@ namespace livelywpf
         }
 
         private bool _savedDataLogged = false;
-
-        private void LogSavedData()
+        private void LogLivelyConfigData()
         {
             if (!_savedDataLogged)
             {
