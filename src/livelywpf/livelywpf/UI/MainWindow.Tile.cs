@@ -11,9 +11,11 @@ using System.Windows;
 
 namespace livelywpf
 {
+    /// <summary>
+    /// "Type" page metro tile events.
+    /// </summary>
     public partial class MainWindow : MetroWindow
     {
-        #region tile_events
 
         private void Tile_Video_Click(object sender, RoutedEventArgs e)
         {
@@ -289,6 +291,5 @@ namespace livelywpf
             //SetupWallpaper(url, SetupDesktop.WallpaperType.url);
         }
 
-        #endregion tile_events
     }
 }

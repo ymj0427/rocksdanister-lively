@@ -314,8 +314,8 @@
     </Compile>
     <Compile Include="github updater\GitUpdater.cs" />
     <Compile Include="logging\Log.cs" />
-    <Compile Include="MainWindow.Tile.cs" />
-    <Compile Include="MainWindow.UI.cs" />
+    <Compile Include="UI\MainWindow.Tile.cs" />
+    <Compile Include="UI\MainWindow.UI.cs" />
     <Compile Include="save\CefProperties.cs" />
     <Compile Include="general dialogues\ApplicationRuleDialogWindow.xaml.cs">
       <DependentUpon>ApplicationRuleDialogWindow.xaml</DependentUpon>
@@ -347,7 +347,6 @@
     </Compile>
     <Compile Include="display\DpiHelper.cs" />
     <Compile Include="utility\FileOperations.cs" />
-    <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="lively\helper functions\ImageOperations.cs" />
     <Compile Include="lively\helper functions\WindowOperations.cs" />
     <Compile Include="wallpaper preview\QuickPreview.xaml.cs">
@@ -450,7 +449,7 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
-    <Page Include="MainWindow.xaml">
+    <Page Include="UI\MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -458,7 +457,7 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="MainWindow.xaml.cs">
+    <Compile Include="UI\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>

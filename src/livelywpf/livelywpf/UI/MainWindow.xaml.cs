@@ -65,7 +65,7 @@ namespace livelywpf
         {
             #region lively_SubProcess
             //External process that runs, kills external pgm wp's( unity, app etc) and refresh desktop in the event lively crashed, could do this in UnhandledException event but this is guaranteed to work even if user kills livelywpf in taskmgr.
-            //todo:- should reconsider.
+            //todo:- look for a better alternative?
             try
             {
                 Process.Start(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "livelySubProcess.exe"), Process.GetCurrentProcess().Id.ToString(CultureInfo.InvariantCulture));
@@ -76,28 +76,24 @@ namespace livelywpf
             }
             #endregion lively_SubProcess
 
-            //settings applied only during app relaunch.
+            //settings applied only during app start.
             #region misc_fixes
             SetupDesktop.wallpaperWaitTime = SaveData.config.WallpaperWaitTime;
 
-            if(SaveData.config.WallpaperRendering == WallpaperRenderingMode.bottom_most)
-            {
+            //older ver of windows, with highcontrast mode cannot render behind icon!
+            //using bottom most window(infront icons) instead of behind.
+            if (SaveData.config.WallpaperRendering == WallpaperRenderingMode.bottom_most)
                 HighContrastFix = true;
-            }
             else
-            {
                 HighContrastFix = false;
-            }
 
+            //force 120fps, in some systems gpu downclocking too much due to low power usage..this is a workaround for smoother ui.
             if (SaveData.config.Ui120FPS)
-            {
-                //force 120fps, in some systems gpu downclocking too much due to low power usage..this is a workaround for smoother ui.
                 Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline),
                              new FrameworkPropertyMetadata { DefaultValue = 120 });
-            }
 
             //disable UI HW-Acceleration, for very low end systems optional.
-            if(SaveData.config.UiDisableHW)
+            if (SaveData.config.UiDisableHW)
                 RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
 
             //always show tooltip, even disabled ui elements.
@@ -124,7 +120,6 @@ namespace livelywpf
             SubcribeUI();
 
             lblVersionNumber.Text = "v" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
-
             //attribution document.
             TextRange textRange = new TextRange(licenseDocument.ContentStart, licenseDocument.ContentEnd);
             try
@@ -179,6 +174,7 @@ namespace livelywpf
 
             try
             {
+                //update checking.
                 gitInfo = await GitUpdater.CheckForUpdate("lively", "rocksdanister", "lively_setup_x86_full", 45000);
                 if (gitInfo.Result > 0) //github ver greater, update available!
                 {
@@ -203,20 +199,7 @@ namespace livelywpf
                                .HasMessage(Properties.Resources.txtUpdateBanner + " " + gitInfo.Release.TagName)
                                .WithButton(Properties.Resources.txtDownload, button => { ShowLivelyUpdateWindow(); })
                                .Dismiss().WithButton(Properties.Resources.txtLabel37, button => { })
-                                /*
-                                .WithAdditionalContent(ContentLocation.Bottom,
-                                new Border
-                                {
-                                    BorderThickness = new Thickness(0, 1, 0, 0),
-                                    BorderBrush = new SolidColorBrush(Color.FromArgb(128, 28, 28, 28)),
-                                    Child = new System.Windows.Controls.CheckBox
-                                    {
-                                        Margin = new Thickness(12, 8, 12, 8),
-                                        Content = Properties.Resources.txtIgnore + " " + gitRelease.TagName
-                                    }
-                                })
-                                */
-                                .Queue();
+                               .Queue();
                         }
                     }
                 }
@@ -653,40 +636,7 @@ namespace livelywpf
             }
             selectedTile.Add(selection);
             wallpapersLV.ScrollIntoView(selection);
-            /*
-            if(!File.Exists(selectedTile[0].LivelyInfo.Preview)) //if no preview gif, load image instead.
-            {
-                if (File.Exists(selectedTile[0].LivelyInfo.Thumbnail))
-                {
-                    selectedTile[0].LivelyInfo.Preview = selectedTile[0].LivelyInfo.Thumbnail;
-                }
-                else
-                {
-                    selectedTile[0].LivelyInfo.Preview = null;
-                }
-            }
-            */
         }
-
-        #region library_filter
-        private void TextBoxLibrarySearch_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (String.IsNullOrWhiteSpace(textBoxLibrarySearch.Text))
-            {
-                tileDataFiltered.Filter = null;
-            }
-            else
-            {
-                TileData tmpvar;
-                //search based on title +(or) desc
-                tileDataFiltered.Filter = i => ( (tmpvar = (TileData)i).LivelyInfo.Title + tmpvar.LivelyInfo.Desc).IndexOf(textBoxLibrarySearch.Text, StringComparison.OrdinalIgnoreCase) > -1;
-            }
-            //todo:- fix, search buggy with my dynamic gif loading code.
-            //prevIndexOffset = 666;
-            //WallpapersLV_ScrollChanged(null, null);
-        }
-
-        #endregion library_filter
 
         #region scroll_gif_logic
 
@@ -721,23 +671,11 @@ namespace livelywpf
             ScrollViewer scrollViewer = GetDescendantByType(wallpapersLV, typeof(ScrollViewer)) as ScrollViewer;
             if (scrollViewer != null)
             {
-                //Debug.WriteLine(scrollViewer.VerticalOffset );
-                //Debug.WriteLine("Visible Item Count:{0}", scrollViewer.ViewportHeight);
                 int indexOffset = 0;
                 double percent = scrollViewer.ViewportHeight * .33f;
                 double shiftY = scrollViewer.VerticalOffset / percent;
 
                 int startIndex = 0;
-                /*
-                for (int i = 0; i < tileDataList.Count; i++)
-                {
-                    if (tileDataList[i].LivelyInfo.title.StartsWith(textBoxLibrarySearch.Text, StringComparison.OrdinalIgnoreCase))
-                    {
-                        startIndex = i;
-                        break;
-                    }
-                }
-                */
                 if (shiftY > 0 || sender == null )
                 {
                     indexOffset = startIndex +  Convert.ToInt32(shiftY) * 5;
@@ -761,7 +699,6 @@ namespace livelywpf
                             tileDataList[i].TilePreview = null;
                         }
                     }
-                    //wallpapersLV.Items.Refresh();
                 }
                 prevIndexOffset = indexOffset;
             }           
@@ -796,163 +733,6 @@ namespace livelywpf
 
         #endregion scroll_gif_logic
 
-
-        private void MenuItem_SetWallpaper_Click(object sender, RoutedEventArgs e) //contextmenu
-        {
-            SetWallpaperBtn_Click(this, null);
-        }
-        private async void SetWallpaperBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (wallpapersLV.SelectedIndex == -1)
-                return;
-
-            var selection = (TileData)wallpapersLV.SelectedItem;
-            if (selection.LivelyInfo.Type == SetupDesktop.WallpaperType.app || selection.LivelyInfo.Type == SetupDesktop.WallpaperType.godot
-                || selection.LivelyInfo.Type == SetupDesktop.WallpaperType.unity || selection.LivelyInfo.Type == SetupDesktop.WallpaperType.unity_audio)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgExternalAppWarningTitle,Properties.Resources.msgExternalAppWarning, MessageDialogStyle.AffirmativeAndNegative,
-                            new MetroDialogSettings() { DialogTitleFontSize = 18, ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16,
-                            AnimateHide = false, AnimateShow = false});
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {}
-            }
-            else if(selection.LivelyInfo.Type == SetupDesktop.WallpaperType.url || selection.LivelyInfo.Type == SetupDesktop.WallpaperType.video_stream)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgUrlWarningTitle, Properties.Resources.msgUrlWarning +"\n\n"+ selection.LivelyInfo.FileName, 
-                                    MessageDialogStyle.AffirmativeAndNegative, new MetroDialogSettings() { DialogTitleFontSize = 18, 
-                                    ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16,
-                                    AnimateShow = false, AnimateHide = false});
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {}
-            }
-
-            if (selection.IsCustomisable)
-            {
-                //show customise btn when wp set.
-                selection.CustomiseBtnToggle = true;
-            }
-            
-            if (selection.LivelyInfo.Type == SetupDesktop.WallpaperType.app)
-            {
-                SetupWallpaper(selection.LivelyInfo.FileName, selection.LivelyInfo.Type, selection.LivelyInfo.Arguments, true);
-            }
-            else
-                SetupWallpaper(selection.LivelyInfo.FileName, selection.LivelyInfo.Type, null, true);
-        }
-
-        /// <summary>
-        /// Library wp customise btn.
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void MenuItem_CustomiseWallpaper_Click(object sender, RoutedEventArgs e) //contextmenu
-        {
-            //ShowCustomiseWidget();
-            if (wallpapersLV.SelectedIndex == -1)
-                return;
-
-            if (Multiscreen)
-            {
-                var selection = (TileData)wallpapersLV.SelectedItem;
-
-                //checking if same wp running more than 1 instance.
-                var wp = SetupDesktop.webProcesses.FindAll(x => x.FilePath.Equals(selection.LivelyInfo.FileName, StringComparison.Ordinal));
-                if (wp.Count > 1)
-                {
-                    //monitor select dialog
-                    DisplaySelectWindow displaySelectWindow = new DisplaySelectWindow
-                    {
-                        WindowStartupLocation = WindowStartupLocation.CenterScreen
-                    };
-                    displaySelectWindow.ShowDialog();
-
-                    if (DisplaySelectWindow.selectedDisplay == null) //none
-                    {
-                        return;
-                    }
-                    SetupDesktop.SendCustomiseMsgtoWallpaper(DisplaySelectWindow.selectedDisplay);
-                }
-                else
-                {
-                    SetupDesktop.SendCustomiseMsgtoWallpaper2(selection.LivelyInfo.FileName);
-                }
-            }
-            else
-            {
-                SetupDesktop.SendCustomiseMsgtoWallpaper(Screen.PrimaryScreen.DeviceName);
-            }
-        }
-
-        /// <summary>
-        /// System tray customise option.
-        /// Always display selection dialog for multiple screens.
-        /// </summary>
-        public static void ShowCustomiseWidget()
-        {
-            if (Multiscreen)
-            {
-                //monitor select dialog
-                DisplaySelectWindow displaySelectWindow = new DisplaySelectWindow
-                {
-                    WindowStartupLocation = WindowStartupLocation.CenterScreen
-                };
-                displaySelectWindow.ShowDialog();
-
-                if (DisplaySelectWindow.selectedDisplay == null) //none
-                {
-                    return;
-                }
-
-                SetupDesktop.SendCustomiseMsgtoWallpaper(DisplaySelectWindow.selectedDisplay);
-            }
-            else
-            {
-                SetupDesktop.SendCustomiseMsgtoWallpaper(Screen.PrimaryScreen.DeviceName);
-            }
-        }
-
-        private void MenuItem_ShowOnDisk_Click(object sender, RoutedEventArgs e) 
-        {
-            if (wallpapersLV.SelectedIndex == -1)
-                return;
-
-            try
-            {
-                var selection = (TileData)wallpapersLV.SelectedItem;
-                string folderPath;
-                if (selection.LivelyInfo.Type == SetupDesktop.WallpaperType.url || selection.LivelyInfo.Type == SetupDesktop.WallpaperType.video_stream)
-                {
-                    folderPath = selection.LivelyInfoDirectoryLocation;
-                }
-                else
-                {
-                    folderPath = Path.GetDirectoryName(selection.LivelyInfo.FileName);
-                }
-
-                if (Directory.Exists(folderPath))
-                {
-                    ProcessStartInfo startInfo = new ProcessStartInfo
-                    {
-                        Arguments = "\"" + folderPath + "\"",
-                        FileName = "explorer.exe"
-                    };
-                    Process.Start(startInfo);
-                }
-            }
-            catch (Exception e1)
-            {
-                Logger.Error("folder open error:- " + e1.ToString());
-                WpfNotification(NotificationType.error, Properties.Resources.txtLivelyErrorMsgTitle, e1.Message);
-            }
-        }
-
-        
         class ZipCreateInfo
         {
             public MetroProgressBar ProgressBar { get; private set; }
@@ -1275,67 +1055,6 @@ namespace livelywpf
                                          "comp");
 
             return str.IndexOf(substring, comp) >= 0;
-        }
-
-        private async void MenuItem_DeleteWallpaper_Click(object sender, RoutedEventArgs e)
-        {
-            if (wallpapersLV.SelectedIndex == -1)
-                return;
-            var selection = (TileData)wallpapersLV.SelectedItem;
-
-            if (selection.LivelyInfo.IsAbsolutePath != true)
-            {
-                var ch = await this.ShowMessageAsync(Properties.Resources.msgDeleteConfirmationTitle, Properties.Resources.msgDeleteConfirmation, 
-                              MessageDialogStyle.AffirmativeAndNegative,new MetroDialogSettings() { AffirmativeButtonText = "Yes", NegativeButtonText = "No", DialogTitleFontSize = 18,
-                               ColorScheme = MetroDialogColorScheme.Inverted, DialogMessageFontSize = 16, AnimateShow = false, AnimateHide = false });
-
-                if (ch == MessageDialogResult.Negative)
-                    return;
-                else if (ch == MessageDialogResult.Affirmative)
-                {
-
-                }
-            }
-
-            if (selection.LivelyInfo.IsAbsolutePath)
-            {
-                //since original file is not deleted, safe to continue.
-            } 
-            else
-            {
-                //check if wp is running, if so abort!
-                if (SetupDesktop.wallpapers.FindIndex(x => x.FilePath.Equals(selection.LivelyInfo.FileName, StringComparison.OrdinalIgnoreCase)) != -1)
-                {
-                    await this.ShowMessageAsync(Properties.Resources.msgDeletionFailureTitle, Properties.Resources.msgDeletionFailure, MessageDialogStyle.Affirmative,
-                        new MetroDialogSettings() { AnimateHide = false, AnimateShow = false});
-                    return;
-                }
-            }
-
-            selectedTile.Remove(selection);
-            tileDataList.Remove(selection);
-            wallpapersLV.SelectedIndex = -1; //clears selectedTile info panel.
-
-            FileOperations.DeleteDirectoryAsync(selection.LivelyInfoDirectoryLocation);
-            try
-            {   
-                //Delete LivelyProperties.info copy folder.
-                string[] wpdataDir = Directory.GetDirectories(Path.Combine(App.PathData, "SaveData", "wpdata"));
-                var wpFolderName = new System.IO.DirectoryInfo(selection.LivelyInfoDirectoryLocation).Name;
-                for (int i = 0; i < wpdataDir.Length; i++)
-                {
-                    var item = new System.IO.DirectoryInfo(wpdataDir[i]).Name;
-                    if (wpFolderName.Equals(item, StringComparison.Ordinal))
-                    {
-                        FileOperations.DeleteDirectoryAsync(wpdataDir[i]);
-                        break;
-                    }
-                }
-            }
-            catch(Exception ex)
-            {
-                Logger.Error(ex.ToString());
-            }
         }
 
         #endregion wallpaper_library

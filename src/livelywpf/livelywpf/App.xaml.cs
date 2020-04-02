@@ -24,6 +24,7 @@ namespace livelywpf
     public partial class App : Application
     {
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+        //single instance mutex variable; Inno-installer also checks this before proceeding.
         static readonly Mutex mutex = new Mutex(false, "LIVELY:DESKTOPWALLPAPERSYSTEM");
         public static MainWindow W { get; private set; }
 
@@ -64,7 +65,7 @@ namespace livelywpf
             }
             catch(Exception ex)
             {
-                //not logging here, something must be seriously wrong.. just display msg & terminate.
+                //not logging here, something must be seriously wrong.. just display message and terminate.
                 MessageBox.Show(ex.Message, Props.Resources.txtLivelyErrorMsgTitle, MessageBoxButton.OK, MessageBoxImage.Error);
                 Environment.Exit(1); //exit when msg-loop not ready.
             }
@@ -72,9 +73,11 @@ namespace livelywpf
             SaveData.LoadConfig();
 
             #region language
+
             //CultureInfo.CurrentCulture = new CultureInfo("ru-RU", false); //not working?
+            //Example: System.Threading.Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("zh-CN"); //zh-CN
             System.Threading.Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo(SaveData.config.Language);
-            //System.Threading.Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("zh-CN"); //zh-CN
+
             #endregion language
 
             //Lively previous instance did not close properly.
@@ -108,12 +111,13 @@ namespace livelywpf
                     SaveData.SaveWallpaperLayout(); //deleting saved wallpaper arrangements.
                 }
 
+                //resetting savefile.
+                SaveData.config.SafeShutdown = false;
+                SaveData.SaveConfig();
             }
-            //resetting savefile.
-            SaveData.config.SafeShutdown = false;
-            SaveData.SaveConfig();
 
             #region theme
+
             // add custom accent and theme resource dictionaries to the ThemeManager
             // you should replace MahAppsMetroThemesSample with your application name
             // and correct place where your custom accent lives
@@ -142,6 +146,7 @@ namespace livelywpf
 
             // now change app style to the custom accent and current theme
             //ThemeManager.ChangeAppStyle(Application.Current, ThemeManager.GetAccent("CustomAccent1"), ThemeManager.GetAppTheme(SaveData.livelyThemes[SaveData.config.Theme].Base));
+
             #endregion theme
 
             livelywpf.logging.Log.InitializeLog();
@@ -151,10 +156,11 @@ namespace livelywpf
             SetupExceptionHandling();
             W = new MainWindow(); 
         
+            //first time run actions.
             if (SaveData.config.IsFirstRun)
             {
                 //SaveData.config.isFirstRun = false; //only after minimizing to tray isFirstRun is set to false.
-                SaveData.SaveConfig(); //creating disk file temp, not needed!
+                SaveData.SaveConfig(); //creating disk file temp, not required.
 
                 W.Show();
                 W.UpdateWallpaperLibrary(); 
@@ -265,11 +271,10 @@ namespace livelywpf
 
             try
             {
-                //if (!mutex.WaitOne()) //indefinite wait.
                 // wait a few seconds in case livelywpf instance is just shutting down..
                 if (!mutex.WaitOne(TimeSpan.FromSeconds(5), false))
                 {
-                    //this is ignoring the config-file saved language, only checking system language.
+                    //this is ignoring the config-file user saved language, only checking system language.
                     System.Threading.Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo(CultureInfo.CurrentCulture.Name); 
                     MessageBox.Show(Props.Resources.msgSingleInstanceOnly, Props.Resources.txtLivelyWaitMsgTitle, MessageBoxButton.OK, MessageBoxImage.Exclamation);
                     return;
@@ -277,7 +282,7 @@ namespace livelywpf
             }
             catch(AbandonedMutexException e)
             {
-                //Note to self:- logger backup(in the even of previous lively crash) is at App() contructor func, DO NOT start writing loghere to avoid overwriting crashlog.
+                //Note to self:- logger backup(in the even of previous lively crash) is at App() contructor func, DO NOT start writing loghere to avoid overwriting crashlog if any!
                 System.Diagnostics.Debug.WriteLine(e.Message);
             }
 
