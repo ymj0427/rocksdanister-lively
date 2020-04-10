@@ -15,7 +15,7 @@ namespace livelywpf.utility
         /// </summary>
         /// <param name="link"></param>
         /// <returns></returns>
-        public static string YoutubeDLArgGenerate(string link)
+        public static string YoutubeDLArgGenerate(string link, SaveData.StreamQualitySuggestion suggestedQuality )
         {
             if (link == null)
                 return null;
@@ -23,7 +23,7 @@ namespace livelywpf.utility
             string quality = null;
             if (!link.Contains("bilibili.com/video/")) //youtube-dl failing if quality flag is set.
             {
-                switch (SaveData.config.StreamQuality)
+                switch (suggestedQuality)
                 {
                     case StreamQualitySuggestion.best:
                         quality = String.Empty;

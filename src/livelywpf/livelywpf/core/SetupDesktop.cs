@@ -1131,8 +1131,7 @@ namespace livelywpf
         #endregion wp_refreh
 
         #region cefsharp_events
-        //public static IntPtr cefIntermediate;
-        //public static IntPtr cefRenderWidget;
+
         /// <summary>
         /// STDOUT redirect message event of cefsharp browser process.
         /// </summary>

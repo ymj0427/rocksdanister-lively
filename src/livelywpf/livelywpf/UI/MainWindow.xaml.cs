@@ -1203,7 +1203,7 @@ namespace livelywpf
 
             if (type == SetupDesktop.WallpaperType.video_stream)
             {
-                tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(path);
+                tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(path, SaveData.config.StreamQuality);
             }
 
             //if previously running or cancelled, waiting to end.
@@ -1442,7 +1442,7 @@ namespace livelywpf
 
                     if (layout.Type == SetupDesktop.WallpaperType.video_stream)
                     {
-                        tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(layout.FilePath);
+                        tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(layout.FilePath, SaveData.config.StreamQuality);
                     }
                     else
                         tmpData.Arguments = layout.Arguments;
@@ -1464,7 +1464,7 @@ namespace livelywpf
 
                     if (layout.Type == SetupDesktop.WallpaperType.video_stream)
                     {
-                        tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(layout.FilePath);
+                        tmpData.Arguments = utility.YTDL.YoutubeDLArgGenerate(layout.FilePath, SaveData.config.StreamQuality);
                     }
                     else
                         tmpData.Arguments = layout.Arguments;

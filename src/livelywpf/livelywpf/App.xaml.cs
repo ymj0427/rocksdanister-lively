@@ -32,7 +32,7 @@ namespace livelywpf
         /// portable lively build, no installer.
         /// Do not forget to also update livelysubprocess project variable.
         /// </summary>
-        public static readonly bool isPortableBuild = true;
+        public static readonly bool isPortableBuild = false;
         /// <summary>
         /// Wallpapers/plugin install directory.
         /// </summary>

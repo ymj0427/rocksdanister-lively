@@ -109,13 +109,7 @@
                                                 <TextBlock Text="Customise Wallpaper"  />
                                             </WrapPanel>
                                         </Button>
-                                        <!--
-                                        <StackPanel>
-                                            <TextBox IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Text="Speed"/>
-                                            <Slider Minimum="0" Maximum="200" />
-                                        </StackPanel>
-                                        -->
-                                        <!--  Foreground="#FFAAA8A8"-->
+          
                                         <TextBox x:Name="LibraryTitle" Background="#191919" IsReadOnly="True" FontSize="15" TextWrapping="Wrap"  BorderThickness="0,0,0,1" Text="{Binding LivelyInfo.Title}" 
                                                  Foreground="{DynamicResource AccentColorBrush}" Margin="0,0,0,1"/>
                                         <TextBox x:Name="LibraryDesc" Background="#191919" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Text="{Binding LivelyInfo.Desc}"/>
@@ -174,14 +168,6 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <!--
-                    <Button Canvas.Left="523" Canvas.Top="496" ClickMode="Release" Click="Button_Click_InstallWallpaper" Height="27" Width="139">
-                        <WrapPanel>
-                            <Image Source="/images/icons8-insert-30.png" />
-                            <TextBlock Text="{x:Static p:Resources.txtInstallWallpaper}" />
-                        </WrapPanel>
-                    </Button>
-                    -->
 
                     <Button Canvas.Left="609" Canvas.Top="496" ClickMode="Release" Click="Button_Click_HowTo" Height="26">
                         <WrapPanel>
@@ -196,14 +182,6 @@
                             <!--<TextBlock Text="{x:Static p:Resources.txtCreateWallpaper}" />-->
                         </WrapPanel>
                     </Button>
-                    <!--
-                    <Button Canvas.Left="573" Canvas.Top="498" ClickMode="Release" Height="28"   Click="Hyperlink_SupportPage" >
-                        <WrapPanel ToolTip="https://ko-fi.com/rocksdanister">
-                            <Image  Source="/images/icons8-heart-outline-24.png" />
-                        </WrapPanel>
-                    </Button>
-                    -->
-                    <!-- TextBox x:Name="textBoxLibrarySearch" Height="19" Canvas.Left="162" TextWrapping="Wrap" TextChanged="TextBoxLibrarySearch_TextChanged" Canvas.Top="497" Width="186"/>-->
 
                     <Grid Canvas.Top="496" Canvas.Left="5">
                         <TextBox x:Name="textBoxLibrarySearch" Height="19" TextWrapping="Wrap" TextChanged="TextBoxLibrarySearch_TextChanged" Width="186"/>
@@ -574,27 +552,17 @@
            
         </Controls:MetroTabControl>
 
-        <!--
-        <TextBlock Margin="0,-20,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Height="15"  Name="hyperlinkUpdateBanner" Visibility="Hidden" 
-                                                                                                MouseLeftButtonDown="hyperlinkUpdateBanner_MouseLeftButtonDown" >
-            <Hyperlink RequestNavigate="Hyperlink_RequestNavigate" NavigateUri="https://github.com/rocksdanister/lively/" IsEnabled="False" Foreground="{DynamicResource AccentColorBrush2}" >
-                <TextBlock  Name="hyperlinkUpdateBannerText" Text="Update available Lively " />
-            </Hyperlink>
-        </TextBlock>
-        -->
-        <!--
-        <Border Grid.Column="1"  Margin="-100,-20,0,0">
-            <notification:NotificationMessageContainer Name="notify" Manager="{Binding Manager}"  />
-        </Border>
-        -->
         <notification:NotificationMessageContainer Name="notify" Manager="{Binding Manager}" Margin="-15,5,0,0" />
-        <!--Margin="-15,-25,0,0"-->
-        <Image x:Name="image" ToolTip="Display Settings/Info" HorizontalAlignment="Left" Height="20"  Width="20" Margin="40.8,-21,0,0" MouseLeftButtonUp="Image_Display_MouseLeftButtonUp" 
+
+        <StackPanel Margin="160,-21,27.4,0" Orientation="Horizontal" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="1" >
+            <TextBlock TextAlignment="Right" Text="{x:Static p:Resources.txtTitlebar}"  Foreground="{DynamicResource AccentColorBrush}" FontSize="12"/>
+            <Controls:Badged Badge="0" BadgePlacementMode="BottomRight" >
+                <Image Margin="5,0,0,0" x:Name="image" ToolTip="Display Settings/Info" Height="20"  Width="20" MouseLeftButtonUp="Image_Display_MouseLeftButtonUp" 
                Source="/images/monitor-50xw.png" VerticalAlignment="Top" Grid.Column="2"/>
-        <StackPanel Margin="37,-21,27.4,0" Orientation="Horizontal" VerticalAlignment="Top" Grid.ColumnSpan="2" Grid.Column="1"  >
-            <!--<Image Width="15" Height="15" Source="/images/icons8-seed-of-life-96.png"></Image>-->
-            <TextBlock TextAlignment="Right" Text="{x:Static p:Resources.txtTitlebar}"  Foreground="{DynamicResource AccentColorBrush}" FontSize="12" Width="278" />
+            </Controls:Badged>
         </StackPanel>
+        
     </Grid>
+    
 </Controls:MetroWindow>
 
